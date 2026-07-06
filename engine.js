@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://YOUR-RENDER-URL.onrender.com";
+const BACKEND_URL = "https://xena-backend-1a4t.onrender.com";
 
 self.addEventListener('fetch', (event) => {
   if (event.request.url.includes('/xn/')) {
