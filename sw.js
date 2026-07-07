@@ -49,7 +49,6 @@ async function handle(event) {
   }
   
   try {
-    // Build headers
     var headers = {};
     ['User-Agent','Accept','Accept-Language','Cookie','Range','Referer','Content-Type'].forEach(h => {
       var v = event.request.headers.get(h);
@@ -59,14 +58,20 @@ async function handle(event) {
       headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
     }
     
-    // Get transport mode
-    var mode = 1;
-    try { mode = parseInt(localStorage.getItem('xnTransportMode')) || 1; } catch(e) {}
+    // Always use backend for reliability
+    var body = null;
+    if (!['GET','HEAD'].includes(event.request.method)) {
+      body = Array.from(new Uint8Array(await event.request.clone().arrayBuffer()));
+    }
     
-    var resp;
+    var resp = await fetch(BACKEND + '/tunnel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: target, method: event.request.method, headers, body })
+    });
     
-    if (mode === 3) {
-      // Mode 3: Direct SW fetch (no backend)
+    if (!resp.ok) {
+      // Fallback: direct fetch
       var fetchOpts = {
         method: event.request.method,
         headers: headers,
@@ -78,34 +83,6 @@ async function handle(event) {
         fetchOpts.body = await event.request.clone().blob();
       }
       resp = await fetch(target, fetchOpts);
-    } else {
-      // Mode 1 & 2: Go through Render backend
-      var body = null;
-      if (!['GET','HEAD'].includes(event.request.method)) {
-        body = Array.from(new Uint8Array(await event.request.clone().arrayBuffer()));
-      }
-      
-      resp = await fetch(BACKEND + '/tunnel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: target, method: event.request.method, headers, body })
-      });
-      
-      if (!resp.ok && resp.status !== 304) {
-        // If backend fails, try direct as fallback
-        console.log('Backend returned ' + resp.status + ', falling back to direct fetch');
-        var fetchOpts = {
-          method: event.request.method,
-          headers: headers,
-          mode: 'cors',
-          credentials: 'omit',
-          redirect: 'follow'
-        };
-        if (!['GET','HEAD'].includes(event.request.method)) {
-          fetchOpts.body = await event.request.clone().blob();
-        }
-        resp = await fetch(target, fetchOpts);
-      }
     }
     
     return processResponse(resp, target);
@@ -142,10 +119,14 @@ function processResponse(resp, originalUrl) {
   
   if (ct.includes('css')) {
     return resp.text().then(text => {
-      text = text.replace(/url\(['"]?([^'")\s]+)['"]?\)/gi, (m, val) => {
-        if (!val || val.startsWith('data:') || val.startsWith('#')) return m;
-        try { return "url('/xn/" + enc(new URL(val, originalUrl).href) + "')"; } catch(e) { return m; }
-      });
+      text = rewriteCSS(text, originalUrl);
+      return new Response(text, { status: resp.status, headers: outHeaders });
+    });
+  }
+  
+  if (ct.includes('javascript') || ct.includes('ecmascript')) {
+    return resp.text().then(text => {
+      text = rewriteJS(text, originalUrl);
       return new Response(text, { status: resp.status, headers: outHeaders });
     });
   }
@@ -153,45 +134,207 @@ function processResponse(resp, originalUrl) {
   return resp.arrayBuffer().then(buf => new Response(buf, { status: resp.status, headers: outHeaders }));
 }
 
+function rewriteURL(val, base) {
+  // Skip empty, anchors, data URIs, javascript:, blob:, mailto:, etc.
+  if (!val || val.startsWith('#') || val.startsWith('data:') || 
+      val.startsWith('javascript:') || val.startsWith('about:') || 
+      val.startsWith('blob:') || val.startsWith('mailto:') ||
+      val.startsWith('tel:') || val.startsWith('//')) return null;
+  
+  // If it's already a proxied URL, skip
+  if (val.startsWith('/xn/') || val.startsWith('/yt/')) return null;
+  
+  // If it's a root-relative path (/dist/..., /font/..., etc.)
+  if (val.startsWith('/')) {
+    try {
+      var absolute = new URL(val, base).href;
+      return '/xn/' + enc(absolute);
+    } catch(e) { return null; }
+  }
+  
+  // If it's a full URL
+  if (val.includes('://')) {
+    try {
+      return '/xn/' + enc(new URL(val, base).href);
+    } catch(e) { return null; }
+  }
+  
+  // Relative path (not starting with /) — resolve against base
+  try {
+    var absolute = new URL(val, base).href;
+    return '/xn/' + enc(absolute);
+  } catch(e) { return null; }
+  
+  return null;
+}
+
 function rewriteHTML(html, base) {
   try {
-    html = html.replace(/\s(href|src|action|poster|data-src|data-href)=['"]([^'"]*)['"]/gi, (m, attr, val) => {
-      if (!val || val.startsWith('#') || val.startsWith('data:') || val.startsWith('javascript:') || val.startsWith('about:') || val.startsWith('blob:') || !val.includes('://')) return m;
-      try { return ' ' + attr + '="/xn/' + enc(new URL(val, base).href) + '"'; } catch(e) { return m; }
-    });
+    // Rewrite href, src, action, poster, data-src, data-href, srcset, imagesrcset
+    html = html.replace(
+      /\s(href|src|action|poster|data-src|data-href)=(['"])([^'"]*)\2/gi,
+      function(m, attr, quote, val) {
+        var rewritten = rewriteURL(val, base);
+        if (rewritten) return ' ' + attr + '=' + quote + rewritten + quote;
+        return m;
+      }
+    );
     
-    html = html.replace(/\ssrcset=['"]([^'"]*)['"]/gi, (m, val) => {
-      if (!val) return m;
-      return ' srcset="' + val.split(',').map(s => {
-        var parts = s.trim().split(/\s+/);
-        if (!parts[0]) return s;
-        try { return '/xn/' + enc(new URL(parts[0], base).href) + (parts[1] ? ' ' + parts[1] : ''); } catch(e) { return s; }
-      }).join(', ') + '"';
-    });
+    // Rewrite srcset (comma-separated URLs)
+    html = html.replace(
+      /\ssrcset=(['"])([^'"]*)\1/gi,
+      function(m, quote, val) {
+        if (!val) return m;
+        var items = val.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        var rewritten = items.map(function(item) {
+          var parts = item.trim().split(/\s+/);
+          if (!parts.length || !parts[0]) return item;
+          var r = rewriteURL(parts[0], base);
+          if (r) return r + (parts[1] ? ' ' + parts[1] : '');
+          return item;
+        });
+        return ' srcset=' + quote + rewritten.join(', ') + quote;
+      }
+    );
     
-    html = html.replace(/url\(['"]?([^'")\s]+)['"]?\)/gi, (m, val) => {
-      if (!val || val.startsWith('data:') || val.startsWith('#')) return m;
-      try { return "url('/xn/" + enc(new URL(val, base).href) + "')"; } catch(e) { return m; }
-    });
+    // Rewrite url() references in inline styles
+    html = html.replace(
+      /url\((['"]?)([^'")\s]+)\1\)/gi,
+      function(m, quote, val) {
+        var r = rewriteURL(val, base);
+        if (r) return 'url(' + r + ')';
+        return m;
+      }
+    );
     
+    // Rewrite <link> href for stylesheets/preloads
+    html = html.replace(
+      /<link\s([^>]*?)href=(['"])([^'"]*)\2([^>]*?)>/gi,
+      function(m, before, quote, val, after) {
+        var r = rewriteURL(val, base);
+        if (r) return '<link ' + before + 'href=' + quote + r + quote + after + '>';
+        return m;
+      }
+    );
+    
+    // Rewrite <meta http-equiv="refresh" content="0;url=...">
+    html = html.replace(
+      /<meta\s([^>]*?)content=(['"])(\d+);\s*url=([^'"]*)\2([^>]*?)>/gi,
+      function(m, before, quote, sec, url, after) {
+        var r = rewriteURL(url, base);
+        if (r) return '<meta ' + before + 'content=' + quote + sec + ';url=' + r + quote + after + '>';
+        return m;
+      }
+    );
+    
+    // Inject runtime patcher
     var patcher = '<script>' +
     '(function(){' +
     'var K=[120,101,110,97];' +
     'function eu(u){var o="";for(var i=0;i<u.length;i++)o+=String.fromCharCode(u.charCodeAt(i)^K[i%4]);return btoa(o).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");}' +
-    'function pu(u){if(!u||!u.includes("://")||u.includes("/xn/")||u.indexOf(window.origin)>-1)return u;try{return"/xn/"+eu(new URL(u,window.location.href).href);}catch(e){return u;}}' +
-    'var _sa=Element.prototype.setAttribute;Element.prototype.setAttribute=function(n,v){if(typeof v==="string"&&(n==="src"||n==="href"||n==="action"||n==="data-src")&&v.includes("://")&&!v.includes("/xn/")&&v.indexOf(window.origin)===-1){try{return _sa.call(this,n,pu(v));}catch(e){}}return _sa.call(this,n,v);};' +
-    'try{var _id=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,"src");if(_id&&_id.set){Object.defineProperty(HTMLImageElement.prototype,"src",{set:function(v){if(typeof v==="string"&&v.includes("://")&&!v.includes("/xn/")&&v.indexOf(window.origin)===-1){try{_id.set.call(this,pu(v));return;}catch(e){}}_id.set.call(this,v);},get:function(){return _id.get.call(this);}});}}catch(e){}' +
-    'var _fw=window.fetch;window.fetch=function(i,o){if(typeof i==="string"&&i.includes("://")&&!i.includes("/xn/")&&i.indexOf(window.origin)===-1){return _fw(pu(i),o);}return _fw(i,o);};' +
-    'try{var _x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){if(typeof u==="string"&&u.includes("://")&&!u.includes("/xn/")&&u.indexOf(window.origin)===-1){arguments[1]=pu(u);}return _x.apply(this,arguments);};}catch(e){}' +
-    'var _ow=window.open;window.open=function(u,n,f){if(typeof u==="string"&&u.includes("://")&&!u.includes("/xn/")){var pu2=pu(u);if(pu2!==u){try{window.parent.postMessage({type:"xena-open",url:u},"*");}catch(e){}return null;}}return _ow.call(window,u,n,f);};' +
-    'document.addEventListener("click",function(e){var t=e.target;while(t&&t.tagName!=="A")t=t.parentElement;if(t&&t.href){var h=t.getAttribute("href");if(h&&!h.startsWith("/xn/")&&!h.startsWith("#")&&!h.startsWith("javascript:")&&!h.startsWith("data:")&&!h.startsWith("about:")&&h.includes("://")){e.preventDefault();try{window.parent.postMessage({type:"xena-open",url:h},"*");}catch(e){}}}},true);' +
-    'document.addEventListener("submit",function(e){var f=e.target;if(!f)return;var a=f.getAttribute("action");if(a&&!a.startsWith("/xn/")&&!a.startsWith("#")&&!a.startsWith("javascript:")&&!a.startsWith("data:")&&a.includes("://")){e.preventDefault();try{window.location.href=pu(a);}catch(e){}}},true);' +
+    'function pu(u){' +
+    'if(!u||u.startsWith("#")||u.startsWith("data:")||u.startsWith("javascript:")||u.startsWith("about:")||u.startsWith("blob:")||u.startsWith("//"))return u;' +
+    'if(u.startsWith("/xn/")||u.startsWith("/yt/"))return u;' +
+    'try{var a=new URL(u,window.location.href).href;if(a.indexOf(window.origin)>-1)return u;return"/xn/"+eu(a);}catch(e){return u;}}' +
+    
+    // Patch setAttribute
+    'var _sa=Element.prototype.setAttribute;' +
+    'Element.prototype.setAttribute=function(n,v){' +
+    'if(typeof v==="string"&&(n==="src"||n==="href"||n==="action"||n==="data-src"||n==="poster")){' +
+    'var r=pu(v);if(r!==v)return _sa.call(this,n,r);}' +
+    'return _sa.call(this,n,v);};' +
+    
+    // Patch Image.src
+    'try{var _id=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,"src");' +
+    'if(_id&&_id.set){Object.defineProperty(HTMLImageElement.prototype,"src",{' +
+    'set:function(v){if(typeof v==="string"){var r=pu(v);if(r!==v){_id.set.call(this,r);return;}}_id.set.call(this,v);},' +
+    'get:function(){return _id.get.call(this);}});}}catch(e){}' +
+    
+    // Patch fetch
+    'var _fw=window.fetch;' +
+    'window.fetch=function(i,o){' +
+    'if(typeof i==="string"){var r=pu(i);if(r!==i)return _fw(r,o);}' +
+    'return _fw(i,o);};' +
+    
+    // Patch XMLHttpRequest
+    'try{var _x=XMLHttpRequest.prototype.open;' +
+    'XMLHttpRequest.prototype.open=function(m,u){' +
+    'if(typeof u==="string"){var r=pu(u);if(r!==u)arguments[1]=r;}' +
+    'return _x.apply(this,arguments);};}catch(e){}' +
+    
+    // Patch createElement to intercept script/link creation
+    'var _ce=document.createElement.bind(document);' +
+    'document.createElement=function(tag,opts){' +
+    'var el=_ce(tag,opts);' +
+    'if(tag==="script"||tag==="link"||tag==="img"||tag==="iframe"){' +
+    'var _ss=Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype,"src");' +
+    '}' +
+    'return el;};' +
+    
+    // Click handler for links
+    'document.addEventListener("click",function(e){' +
+    'var t=e.target;while(t&&t.tagName!=="A")t=t.parentElement;' +
+    'if(t&&t.href){' +
+    'var h=t.getAttribute("href");' +
+    'if(h&&!h.startsWith("/xn/")&&!h.startsWith("#")&&!h.startsWith("javascript:")&&!h.startsWith("data:")&&!h.startsWith("about:")&&!h.startsWith("//")){' +
+    'try{var a=new URL(h,window.location.href).href;if(a.indexOf(window.origin)===-1){e.preventDefault();window.parent.postMessage({type:"xena-open",url:a},"*");}}catch(e){}}}},true);' +
+    
+    // Submit handler
+    'document.addEventListener("submit",function(e){' +
+    'var f=e.target;if(!f)return;' +
+    'var a=f.getAttribute("action");' +
+    'if(a&&!a.startsWith("/xn/")&&!a.startsWith("#")&&!a.startsWith("javascript:")&&!a.startsWith("data:")&&!a.startsWith("//")){' +
+    'e.preventDefault();try{window.location.href=pu(a);}catch(e){}}},true);' +
+    
     '})();' +
     '</script></head>';
     
     html = html.replace('</head>', patcher);
-  } catch(e) {}
+    
+  } catch(e) {
+    console.error('rewriteHTML error:', e.message);
+  }
   return html;
+}
+
+function rewriteCSS(text, base) {
+  try {
+    text = text.replace(
+      /url\((['"]?)([^'")\s]+)\1\)/gi,
+      function(m, quote, val) {
+        var r = rewriteURL(val, base);
+        if (r) return 'url(' + r + ')';
+        return m;
+      }
+    );
+    
+    // Rewrite @import statements
+    text = text.replace(
+      /@import\s+(?:url\()?(['"]?)([^'")\s]+)\1(?:\))?/gi,
+      function(m, quote, val) {
+        var r = rewriteURL(val, base);
+        if (r) return '@import \'' + r + '\'';
+        return m;
+      }
+    );
+  } catch(e) {}
+  return text;
+}
+
+function rewriteJS(text, base) {
+  try {
+    // Rewrite string literals that look like URLs
+    // This is a best-effort approach
+    text = text.replace(
+      /(['"])(https?:\/\/[^'"]+)\1/g,
+      function(m, quote, url) {
+        try {
+          return quote + '/xn/' + enc(new URL(url, base).href) + quote;
+        } catch(e) { return m; }
+      }
+    );
+  } catch(e) {}
+  return text;
 }
 
 function errorResponse(code, title, message) {
