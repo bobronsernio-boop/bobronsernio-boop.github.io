@@ -896,19 +896,19 @@ var healthy=false;
 var checked=false;
 
 async function healthCheck(){
-  try{
-    var c=new AbortController();
-    var t=setTimeout(function(){c.abort();},5000);
-    var r=await fetch('/favicon.ico',{signal:c.signal,method:'HEAD'});
+  // Check if SW is active by checking sw.js exists
+  try {
+    var c = new AbortController();
+    var t = setTimeout(function(){ c.abort(); }, 3000);
+    var r = await fetch('/sw.js', { signal: c, method: 'HEAD' });
     clearTimeout(t);
-    healthy=r.ok;
-    checked=true;
-  }catch(e){
-    healthy=false;
-    checked=true;
+    healthy = r.ok;
+    checked = true;
+  } catch(e) {
+    healthy = false;
+    checked = true;
   }
 }
-
 function updFooter(){
   $('footerclock').textContent=new Date().toLocaleTimeString();
   var dot=$('statusdot');
@@ -944,23 +944,78 @@ setInterval(healthCheck,30000);
 // INIT
 // ============================================================
 function init(){
-  var f=localStorage.getItem('xnFavicon');
-  var t=localStorage.getItem('xnTitle');
+  var f = localStorage.getItem('xnFavicon');
+  var t = localStorage.getItem('xnTitle');
   if(f){
-    var l=document.querySelector('link[rel*="icon"]')||document.createElement('link');
-    l.type='image/x-icon';
-    l.rel='shortcut icon';
-    l.href=f;
+    var l = document.querySelector('link[rel*="icon"]') || document.createElement('link');
+    l.type = 'image/x-icon';
+    l.rel = 'shortcut icon';
+    l.href = f;
     document.head.appendChild(l);
   }
-  if(t)document.title=t;
+  if(t) document.title = t;
 
-  if('serviceWorker'in navigator){
-    navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(err){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function(err){
       console.log('SW registration failed:', err.message);
     });
   }
-  newTab();
+  
+  // Load saved tabs OR create new tab
+  if (!loadTabs()) {
+    newTab();
+  }
+  // ============================================================
+// TAB PERSISTENCE
+// ============================================================
+function saveTabs() {
+  try {
+    var data = tabs.map(function(t) {
+      return { id: t.id, title: t.title, url: t.url, enc: t.enc, favicon: t.favicon };
+    });
+    localStorage.setItem('xnTabs', JSON.stringify(data));
+    localStorage.setItem('xnActTab', actTab);
+  } catch(e) {}
+}
+
+function loadTabs() {
+  try {
+    var data = JSON.parse(localStorage.getItem('xnTabs'));
+    var act = localStorage.getItem('xnActTab');
+    if (data && data.length) {
+      tabs = data;
+      actTab = act && data.find(function(t) { return t.id === act; }) ? act : data[0].id;
+      renderTabs();
+      var activeTab = tabs.find(function(t) { return t.id === actTab; });
+      if (activeTab && activeTab.enc && activeTab.url) {
+        $('homepage').style.display = 'none';
+        $('rframe').style.display = 'block';
+        $('rframe').src = activeTab.enc;
+        $('urlbar').value = activeTab.url;
+      }
+      tc = data.reduce(function(max, t) {
+        var num = parseInt(t.id.replace('t-', '')) || 0;
+        return num > max ? num : max;
+      }, 0);
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+// Override navigation functions to save tabs
+var _origNavTo = navTo;
+navTo = function(id) { _origNavTo(id); setTimeout(saveTabs, 100); };
+
+var _origNavigate = navigate;
+navigate = function(input) { _origNavigate(input); setTimeout(saveTabs, 100); };
+
+var _origAddTab = addTab;
+addTab = function() { _origAddTab(); setTimeout(saveTabs, 100); };
+
+var _origCloseTab = closeTab;
+closeTab = function(id) { _origCloseTab(id); setTimeout(saveTabs, 100); };
+  
   initTransport();
 }
 
