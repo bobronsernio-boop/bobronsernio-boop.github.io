@@ -639,7 +639,18 @@ window.addEventListener('message',function(e){
       navigate(e.data.url);
     }
   }
+  if(e.data&&e.data.type==='xena-youtube'){
+    showYouTubePopup();
+  }
 });
+
+function showYouTubePopup(){
+  openAbout(); // Reuse about modal
+  var aboutContent = document.querySelector('#aboutmodal .modal-box div[style*="background:#000"]');
+  if(aboutContent){
+    aboutContent.innerHTML = '<p class="text-[11px] text-zinc-400 font-mono leading-relaxed" style="white-space:pre-wrap;">YouTube isn\'t working right now. I\'ll fix this in a later update. Sorry gng. Try TikTok or sum idk</p>';
+  }
+}
 
 // ============================================================
 // KEYBOARD SHORTCUTS
