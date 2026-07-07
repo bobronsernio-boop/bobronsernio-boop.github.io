@@ -1,5 +1,6 @@
-// XENA v3 - Service Worker (standalone - no backend needed)
+// XENA v3 - Service Worker (uses Render backend)
 var K = [120, 101, 110, 97];
+var BACKEND = "https://xena-backend-1a4t.onrender.com";
 
 function enc(u) {
   var o = '';
@@ -37,7 +38,7 @@ async function handleRequest(event) {
   var target = dec(token);
   if (!target) return new Response('Invalid token', { status: 400 });
   
-  // Merge query params from the proxied URL
+  // Merge query params
   if (url.search) {
     try {
       var tu = new URL(target);
@@ -50,42 +51,91 @@ async function handleRequest(event) {
   }
   
   try {
-    // Build fetch headers from the original request
+    // Build headers
     var headers = {};
-    
-    // Forward these specific headers
-    var forwardHeaders = ['User-Agent', 'Accept', 'Accept-Language', 'Cookie', 'Range', 'Referer', 'Content-Type'];
-    forwardHeaders.forEach(function(h) {
+    ['User-Agent','Accept','Accept-Language','Cookie','Range','Referer','Content-Type'].forEach(function(h) {
       var v = event.request.headers.get(h);
       if (v) headers[h] = v;
     });
-    
-    // Always ensure a browser User-Agent
     if (!headers['User-Agent']) {
-      headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
     }
     
-    var fetchOpts = {
-      method: event.request.method,
-      headers: headers,
-      mode: 'cors',
-      credentials: 'omit',
-      redirect: 'follow'
-    };
+    // Determine mode from localStorage (read from client via message)
+    var mode = 1;
+    try {
+      var modeStr = await getTransportMode();
+      mode = parseInt(modeStr) || 1;
+    } catch(e) {}
     
-    // Forward body for POST/PUT etc
-    if (!['GET', 'HEAD'].includes(event.request.method)) {
-      fetchOpts.body = await event.request.clone().blob();
+    var resp;
+    
+    if (mode === 1 || mode === 2) {
+      // Bare server mode - use Render backend tunnel
+      resp = await fetch(BACKEND + '/tunnel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: target,
+          method: event.request.method,
+          headers: headers,
+          body: !['GET','HEAD'].includes(event.request.method) 
+            ? Array.from(new Uint8Array(await event.request.clone().arrayBuffer()))
+            : null
+        })
+      });
+    } else {
+      // Mode 3 - direct fetch from SW (browser handles it)
+      var fetchOpts = {
+        method: event.request.method,
+        headers: headers,
+        mode: 'cors',
+        credentials: 'omit',
+        redirect: 'follow'
+      };
+      if (!['GET','HEAD'].includes(event.request.method)) {
+        fetchOpts.body = await event.request.clone().blob();
+      }
+      resp = await fetch(target, fetchOpts);
     }
     
-    var resp = await fetch(target, fetchOpts);
+    if (!resp.ok && resp.status !== 304) {
+      var errMsg = 'HTTP ' + resp.status;
+      try { var ed = await resp.clone().json(); errMsg = ed.error || errMsg; } catch(e) {}
+      return errorResponse('XNA-' + resp.status, 'Proxy Error', errMsg);
+    }
     
-    // Process the response
     return processResponse(resp, target);
     
   } catch(err) {
-    return new Response('Proxy error: ' + err.message, { status: 502 });
+    return errorResponse('XNA-502', 'Connection Failed', err.message);
   }
+}
+
+// Get transport mode from a client
+function getTransportMode() {
+  return new Promise(function(resolve) {
+    var timeout = setTimeout(function() { resolve('1'); }, 1000);
+    
+    var channel = new MessageChannel();
+    channel.port1.onmessage = function(e) {
+      clearTimeout(timeout);
+      if (e.data && e.data.type === 'xena-transport-mode') {
+        resolve(e.data.mode);
+      } else {
+        resolve('1');
+      }
+    };
+    
+    self.clients.matchAll().then(function(clients) {
+      if (clients.length > 0) {
+        clients[0].postMessage({ type: 'xena-get-transport' }, [channel.port2]);
+      } else {
+        clearTimeout(timeout);
+        resolve('1');
+      }
+    });
+  });
 }
 
 function processResponse(resp, originalUrl) {
@@ -96,17 +146,14 @@ function processResponse(resp, originalUrl) {
     'X-Frame-Options': 'SAMEORIGIN'
   };
   
-  var passHeaders = [
-    'content-type', 'content-length', 'content-disposition', 'cache-control',
-    'set-cookie', 'accept-ranges', 'content-range', 'last-modified', 'etag',
-    'date', 'content-encoding'
-  ];
-  passHeaders.forEach(function(h) {
+  ['content-type','content-length','content-disposition','cache-control',
+   'set-cookie','accept-ranges','content-range','last-modified','etag',
+   'date','content-encoding'
+  ].forEach(function(h) {
     var v = resp.headers.get(h);
     if (v) outHeaders[h] = v;
   });
   
-  // Handle HTML - rewrite URLs
   if (ct.includes('text/html')) {
     return resp.text().then(function(html) {
       html = rewriteHTML(html, originalUrl);
@@ -115,7 +162,6 @@ function processResponse(resp, originalUrl) {
     });
   }
   
-  // Handle CSS - rewrite url() references
   if (ct.includes('css')) {
     return resp.text().then(function(text) {
       text = text.replace(/url\(['"]?([^'")\s]+)['"]?\)/gi, function(m, val) {
@@ -126,7 +172,6 @@ function processResponse(resp, originalUrl) {
     });
   }
   
-  // Pass through everything else (images, video, JS, etc.)
   return resp.arrayBuffer().then(function(buf) {
     return new Response(buf, { status: resp.status, headers: outHeaders });
   });
@@ -134,31 +179,25 @@ function processResponse(resp, originalUrl) {
 
 function rewriteHTML(html, base) {
   try {
-    // Rewrite href, src, action, poster, data-src, data-href
     html = html.replace(/\s(href|src|action|poster|data-src|data-href)=['"]([^'"]*)['"]/gi, function(m, attr, val) {
       if (!val || val.startsWith('#') || val.startsWith('data:') || val.startsWith('javascript:') || val.startsWith('about:') || val.startsWith('blob:') || !val.includes('://')) return m;
       try { return ' ' + attr + '="/xn/' + enc(new URL(val, base).href) + '"'; } catch(e) { return m; }
     });
     
-    // Rewrite srcset
     html = html.replace(/\ssrcset=['"]([^'"]*)['"]/gi, function(m, val) {
       if (!val) return m;
-      var items = val.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-      var rewritten = items.map(function(item) {
-        var parts = item.trim().split(/\s+/);
-        if (!parts.length) return item;
-        try { return '/xn/' + enc(new URL(parts[0], base).href) + (parts[1] ? ' ' + parts[1] : ''); } catch(e) { return item; }
-      });
-      return ' srcset="' + rewritten.join(', ') + '"';
+      return ' srcset="' + val.split(',').map(function(s) {
+        var parts = s.trim().split(/\s+/);
+        if (!parts[0]) return s;
+        try { return '/xn/' + enc(new URL(parts[0], base).href) + (parts[1] ? ' ' + parts[1] : ''); } catch(e) { return s; }
+      }).join(', ') + '"';
     });
     
-    // Rewrite url() references in inline styles
     html = html.replace(/url\(['"]?([^'")\s]+)['"]?\)/gi, function(m, val) {
       if (!val || val.startsWith('data:') || val.startsWith('#')) return m;
       try { return "url('/xn/" + enc(new URL(val, base).href) + "')"; } catch(e) { return m; }
     });
     
-    // Inject runtime patcher script before </head>
     var patcher = '<script>' +
     '(function(){' +
     'var K=[120,101,110,97];' +
@@ -175,7 +214,11 @@ function rewriteHTML(html, base) {
     '</script></head>';
     
     html = html.replace('</head>', patcher);
-    
   } catch(e) {}
   return html;
+}
+
+function errorResponse(code, title, message) {
+  var data = { code: code, title: title, message: message, timestamp: Date.now() };
+  return Response.redirect('/error.html?rc=' + btoa(JSON.stringify(data)));
 }
