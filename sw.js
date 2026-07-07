@@ -58,22 +58,40 @@ async function handle(event) {
       headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
     }
     
+    // Check if this is a media file - use stream endpoint
+    var pathExt = target.split('.').pop().toLowerCase();
+    var mediaExts = ['jpg','jpeg','png','gif','webp','bmp','ico','svg','mp4','webm','ogg','mp3','wav','flac','m3u8','ts','m4s','m4v','mov','avi','mkv','wmv','flv','woff','woff2','ttf','eot','otf'];
+    var isMedia = mediaExts.indexOf(pathExt) !== -1;
+    
     var body = null;
     if (!['GET','HEAD'].includes(event.request.method)) {
       body = Array.from(new Uint8Array(await event.request.clone().arrayBuffer()));
     }
     
-    // Try backend
     var resp;
-    try {
-      resp = await fetch(BACKEND + '/tunnel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: target, method: event.request.method, headers, body })
-      });
-    } catch(e) {
-      console.log('Backend error:', e.message);
-      resp = null;
+    
+    if (isMedia) {
+      // Use stream endpoint for media
+      try {
+        resp = await fetch(BACKEND + '/tunnel/stream?url=' + encodeURIComponent(target), {
+          method: 'GET',
+          headers: { 'Range': headers['Range'] || '', 'User-Agent': headers['User-Agent'] }
+        });
+      } catch(e) {
+        resp = null;
+      }
+    }
+    
+    if (!resp || !resp.ok) {
+      try {
+        resp = await fetch(BACKEND + '/tunnel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: target, method: event.request.method, headers, body })
+        });
+      } catch(e) {
+        resp = null;
+      }
     }
     
     // Fallback to direct
@@ -97,7 +115,7 @@ async function handle(event) {
     };
     ['content-type','content-length','content-disposition','cache-control',
      'set-cookie','accept-ranges','content-range','last-modified','etag',
-     'date','content-encoding'
+     'date'
     ].forEach(h => {
       var v = resp.headers.get(h);
       if (v) outHeaders[h] = v;
