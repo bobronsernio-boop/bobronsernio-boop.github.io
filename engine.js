@@ -1,22 +1,25 @@
-// Register the Service Worker
+// XENA Engine - Proxy Bridge
+var BACKEND_URL = "https://xena-backend-1a4t.onrender.com";
+
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('Proxy bridge active with scope:', reg.scope))
-      .catch(err => console.error('Proxy bridge registration failed:', err));
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(function(reg) {
+        console.log('Proxy bridge active with scope:', reg.scope);
+      })
+      .catch(function(err) {
+        console.error('Proxy bridge registration failed:', err.message);
+      });
+  });
+
+  // Listen for messages from SW asking for transport mode
+  navigator.serviceWorker.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'xena-get-transport') {
+      var mode = localStorage.getItem('xnTransportMode') || '1';
+      event.ports[0].postMessage({
+        type: 'xena-transport-mode',
+        mode: mode
+      });
+    }
   });
 }
-
-// Your existing engine logic continues below...
-// Ensure all your fetch requests in engine.js are using relative paths
-// like '/tunnel?url=...' so they are intercepted by the SW.
-const BACKEND_URL = "https://xena-backend-1a4t.onrender.com";
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('/xn/')) {
-    event.respondWith(fetch(`${BACKEND_URL}/tunnel`, {
-      method: 'POST',
-      body: JSON.stringify({ url: atob(event.request.url.split('/xn/')[1]), method: 'GET' })
-    }));
-  }
-});
