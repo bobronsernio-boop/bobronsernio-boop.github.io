@@ -58,10 +58,17 @@ async function handle(event) {
       headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
     }
     
-    // Check if this is a media file - use stream endpoint
-    var pathExt = target.split('.').pop().toLowerCase();
-    var mediaExts = ['jpg','jpeg','png','gif','webp','bmp','ico','svg','mp4','webm','ogg','mp3','wav','flac','m3u8','ts','m4s','m4v','mov','avi','mkv','wmv','flv','woff','woff2','ttf','eot','otf'];
+    var targetHost = '';
+    try { targetHost = new URL(target).hostname; } catch(e) {}
+    
+    // Check if it's a media file by extension
+    var pathExt = '';
+    try { pathExt = target.split('.').pop().toLowerCase().split('?')[0].split('#')[0]; } catch(e) {}
+    var mediaExts = ['jpg','jpeg','png','gif','webp','bmp','ico','svg','mp4','webm','ogg','mp3','wav','flac','m3u8','ts','m4s','m4v','mov','avi','mkv','wmv','flv','woff','woff2','ttf','eot','otf','css','js'];
     var isMedia = mediaExts.indexOf(pathExt) !== -1;
+    
+    // For DuckDuckGo assets and all media files, use raw endpoint
+    var useRaw = isMedia || targetHost.includes('duckduckgo.com') || targetHost.includes('tiktok') || targetHost.includes('cdn');
     
     var body = null;
     if (!['GET','HEAD'].includes(event.request.method)) {
@@ -70,16 +77,13 @@ async function handle(event) {
     
     var resp;
     
-    if (isMedia) {
-      // Use stream endpoint for media
+    if (useRaw) {
       try {
-        resp = await fetch(BACKEND + '/tunnel/stream?url=' + encodeURIComponent(target), {
+        resp = await fetch(BACKEND + '/tunnel/raw?url=' + encodeURIComponent(target), {
           method: 'GET',
           headers: { 'Range': headers['Range'] || '', 'User-Agent': headers['User-Agent'] }
         });
-      } catch(e) {
-        resp = null;
-      }
+      } catch(e) { resp = null; }
     }
     
     if (!resp || !resp.ok) {
@@ -89,12 +93,9 @@ async function handle(event) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: target, method: event.request.method, headers, body })
         });
-      } catch(e) {
-        resp = null;
-      }
+      } catch(e) { resp = null; }
     }
     
-    // Fallback to direct
     if (!resp || !resp.ok) {
       var fetchOpts = {
         method: event.request.method,
@@ -114,8 +115,7 @@ async function handle(event) {
       'X-Frame-Options': 'SAMEORIGIN'
     };
     ['content-type','content-length','content-disposition','cache-control',
-     'set-cookie','accept-ranges','content-range','last-modified','etag',
-     'date'
+     'set-cookie','accept-ranges','content-range','last-modified','etag','date'
     ].forEach(h => {
       var v = resp.headers.get(h);
       if (v) outHeaders[h] = v;
