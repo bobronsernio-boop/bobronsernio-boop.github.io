@@ -255,6 +255,7 @@ body{color:#d4d4d8;font-family:'Inter',sans-serif;display:flex;flex-direction:co
       <div class="field"><label>Panic URL</label><input type="text" id="inp-panicurl" value="https://classroom.google.com"></div>
       <div class="field"><label>Launch Mode</label><select id="inp-launch"><option value="normal">Normal</option><option value="blank">About:Blank</option><option value="blob">Blob:URL</option></select></div>
       <div class="field"><label>Block External Links</label><select id="inp-block"><option value="yes">Yes</option><option value="no">No</option></select></div>
+      <div class="field"><label>DDG Mode</label><select id="inp-ddgmode"><option value="normal">Normal DDG</option><option value="html">HTML DDG (No JS)</option></select></div>
       <div class="modal-actions"><button onclick="closeModal('setmodal')">Cancel</button><button class="primary" onclick="saveSettings()">Save</button></div>
     </div>
     <div id="pane-hist" class="stab-content">
@@ -379,7 +380,11 @@ function searchQuery(q){
   var t=q.trim();if(!t)return '';
   if(/^https?:\/\//i.test(t))return t;
   if(/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}(\/.*)?$/i.test(t))return 'https://'+t;
-  return 'https://html.duckduckgo.com/html/?q='+encodeURIComponent(t);
+  var ddgMode=localStorage.getItem('xnDDGMode')||'normal';
+  if(ddgMode==='html'){
+    return 'https://html.duckduckgo.com/html/?q='+encodeURIComponent(t);
+  }
+  return 'https://duckduckgo.com/?q='+encodeURIComponent(t)+'&kae=d&kak=-1';
 }
 
 function isYouTubeURL(url){
@@ -645,7 +650,7 @@ window.addEventListener('message',function(e){
 });
 
 function showYouTubePopup(){
-  openAbout(); // Reuse about modal
+  openAbout();
   var aboutContent = document.querySelector('#aboutmodal .modal-box div[style*="background:#000"]');
   if(aboutContent){
     aboutContent.innerHTML = '<p class="text-[11px] text-zinc-400 font-mono leading-relaxed" style="white-space:pre-wrap;">YouTube isn\'t working right now. I\'ll fix this in a later update. Sorry gng. Try TikTok or sum idk</p>';
@@ -743,6 +748,8 @@ function restoreInputs(){
   $('inp-block').value=localStorage.getItem('xnBlockExternal')||'yes';
   var savedMode = localStorage.getItem('xnTransportMode');
   if (savedMode) document.getElementById('inp-transport').value = savedMode;
+  var ddgMode = localStorage.getItem('xnDDGMode') || 'normal';
+  if (document.getElementById('inp-ddgmode')) document.getElementById('inp-ddgmode').value = ddgMode;
 }
 
 function saveSettings(){
@@ -752,6 +759,7 @@ function saveSettings(){
   var purl=$('inp-panicurl').value.trim()||'https://classroom.google.com';
   var mode=$('inp-launch').value;
   var block=$('inp-block').value;
+  var ddg = document.getElementById('inp-ddgmode') ? document.getElementById('inp-ddgmode').value : 'normal';
 
   var lnk=document.querySelector('link[rel*="icon"]')||document.createElement('link');
   lnk.type='image/x-icon';
@@ -766,6 +774,7 @@ function saveSettings(){
   localStorage.setItem('xnPanicUrl',purl);
   localStorage.setItem('xnLaunchMode',mode);
   localStorage.setItem('xnBlockExternal',block);
+  localStorage.setItem('xnDDGMode', ddg);
   closeModal('setmodal');
 }
 
@@ -905,52 +914,49 @@ document.addEventListener('keydown',function(e){
 // ============================================================
 var healthy=false;
 var checked=false;
+var healthColor='#eab308';
+var healthLabel='checking';
 
 async function healthCheck(){
-  // Check if SW is active by checking sw.js exists
-  try {
-    var c = new AbortController();
-    var t = setTimeout(function(){ c.abort(); }, 3000);
-    var r = await fetch('/sw.js', { signal: c, method: 'HEAD' });
+  try{
+    var c=new AbortController();
+    var t=setTimeout(function(){c.abort();},8000);
+    var r=await fetch('/health/quick',{signal:c.signal});
     clearTimeout(t);
-    healthy = r.ok;
-    checked = true;
-  } catch(e) {
-    healthy = false;
-    checked = true;
+    if(r.ok){
+      var d=await r.json();
+      healthColor=d.color;
+      healthLabel=d.label;
+      healthy=d.status==='perfect'||d.status==='good';
+      checked=true;
+    }else{
+      healthy=false;
+      checked=true;
+      healthColor='#ef4444';
+      healthLabel='disconnected';
+    }
+  }catch(e){
+    healthy=false;
+    checked=true;
+    healthColor='#ef4444';
+    healthLabel='disconnected';
   }
 }
 
 function updFooter(){
   $('footerclock').textContent=new Date().toLocaleTimeString();
   var dot=$('statusdot');
-  if(!checked){
-    dot.style.background='#eab308';
-    dot.style.boxShadow='0 0 4px #eab308';
-    if($('footerstatus').textContent.indexOf('mode:') === -1) {
-      $('footerstatus').textContent='checking';
-    }
-    return;
-  }
-  if(healthy){
-    dot.style.background='#22c55e';
-    dot.style.boxShadow='0 0 4px #22c55e';
-    if($('footerstatus').textContent.indexOf('mode:') === -1) {
-      $('footerstatus').textContent='connected';
-    }
-  } else {
-    dot.style.background='#ef4444';
-    dot.style.boxShadow='0 0 4px #ef4444';
-    if($('footerstatus').textContent.indexOf('mode:') === -1) {
-      $('footerstatus').textContent='disconnected';
-    }
+  dot.style.background=healthColor;
+  dot.style.boxShadow='0 0 4px '+healthColor;
+  if($('footerstatus').textContent.indexOf('mode:')===-1){
+    $('footerstatus').textContent=healthLabel;
   }
 }
 
 setInterval(updFooter,2000);
 updFooter();
 healthCheck();
-setInterval(healthCheck,30000);
+setInterval(healthCheck,60000);
 
 // ============================================================
 // TAB PERSISTENCE
