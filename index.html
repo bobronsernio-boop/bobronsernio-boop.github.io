@@ -255,7 +255,7 @@ body{color:#d4d4d8;font-family:'Inter',sans-serif;display:flex;flex-direction:co
       <div class="field"><label>Panic URL</label><input type="text" id="inp-panicurl" value="https://classroom.google.com"></div>
       <div class="field"><label>Launch Mode</label><select id="inp-launch"><option value="normal">Normal</option><option value="blank">About:Blank</option><option value="blob">Blob:URL</option></select></div>
       <div class="field"><label>Block External Links</label><select id="inp-block"><option value="yes">Yes</option><option value="no">No</option></select></div>
-      <div class="field"><label>DDG Mode</label><select id="inp-ddgmode"><option value="normal">Normal DDG</option><option value="html">HTML DDG (No JS)</option></select></div>
+      <div class="field"><label>Search Mode</label><select id="inp-ddgmode"><option value="api">API Search (Fast, No Captcha)</option><option value="google">Google Direct</option><option value="ddg">DuckDuckGo Direct</option></select></div>
       <div class="modal-actions"><button onclick="closeModal('setmodal')">Cancel</button><button class="primary" onclick="saveSettings()">Save</button></div>
     </div>
     <div id="pane-hist" class="stab-content">
@@ -380,11 +380,92 @@ function searchQuery(q){
   var t=q.trim();if(!t)return '';
   if(/^https?:\/\//i.test(t))return t;
   if(/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}(\/.*)?$/i.test(t))return 'https://'+t;
-  var ddgMode=localStorage.getItem('xnDDGMode')||'normal';
-  if(ddgMode==='html'){
-    return 'https://html.duckduckgo.com/html/?q='+encodeURIComponent(t);
+  var mode=localStorage.getItem('xnDDGMode')||'api';
+  if(mode==='google') return 'https://www.google.com/search?q='+encodeURIComponent(t)+'&udm=2';
+  if(mode==='ddg') return 'https://duckduckgo.com/?q='+encodeURIComponent(t)+'&kae=d&kak=-1';
+  // API mode - handled by goSearch
+  return '__api__'+t;
+}
+
+// ============================================================
+// SEARCH RESULTS PAGE
+// ============================================================
+function searchAPI(query) {
+  var statusDot=document.getElementById('statusdot');
+  statusDot.style.background='#eab308';
+  statusDot.style.boxShadow='0 0 4px #eab308';
+  document.getElementById('footerstatus').textContent='searching';
+  
+  fetch('/api/search?q='+encodeURIComponent(query))
+    .then(function(r){return r.json()})
+    .then(function(data){
+      statusDot.style.background='#22c55e';
+      statusDot.style.boxShadow='0 0 4px #22c55e';
+      document.getElementById('footerstatus').textContent='connected';
+      
+      var html=buildSearchResults(query,data);
+      var blob=new Blob([html],{type:'text/html'});
+      var url=URL.createObjectURL(blob);
+      
+      var t=tabs.find(function(x){return x.id===actTab;});
+      if(t){
+        t.url='search:'+query;
+        t.enc=url;
+        t.title='Search: '+query;
+        t.favicon='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="%2322c55e"/></svg>';
+      }
+      $('homepage').style.display='none';
+      hideErr();
+      $('rframe').style.display='block';
+      $('rframe').src=url;
+      $('urlbar').value='search: '+query;
+      $('searchfield').value='';
+      renderTabs();
+    })
+    .catch(function(err){
+      // Fallback to Google
+      navigate('https://www.google.com/search?q='+encodeURIComponent(query));
+    });
+}
+
+function buildSearchResults(query,data){
+  var items='';
+  if(data.abstract){
+    items+='<div class="abstract"><div class="abs-title">'+escapeHTML(data.heading||'')+'</div><p>'+escapeHTML(data.abstract)+'</p></div>';
   }
-  return 'https://duckduckgo.com/?q='+encodeURIComponent(t)+'&kae=d&kak=-1';
+  if(data.results&&data.results.length>0){
+    for(var i=0;i<data.results.length;i++){
+      var r=data.results[i];
+      items+='<div class="result"><a href="'+r.url+'">'+escapeHTML(r.title)+'</a><div class="url">'+r.url+'</div><div class="snip">'+escapeHTML(r.snippet)+'</div></div>';
+    }
+  } else {
+    items+='<div class="no-results">No results found. Try a different search term.</div>';
+  }
+  
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeHTML(query)+' - XENA Search</title>'+
+    '<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#030303;color:#d4d4d8;font-family:system-ui,-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:20px;min-height:100vh}'+
+    'h1{font-size:20px;font-weight:700;color:white;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid #181818}'+
+    '.result{border:1px solid #181818;border-radius:10px;padding:14px;margin-bottom:10px;background:#0a0a0a;transition:border-color .15s}'+
+    '.result:hover{border-color:#2a2a2a}'+
+    '.result a{color:#5b9aff;text-decoration:none;font-size:14px;font-weight:500;display:block;margin-bottom:4px}'+
+    '.result a:hover{text-decoration:underline}'+
+    '.result .url{color:#22c55e;font-size:11px;margin-bottom:6px;word-break:break-all}'+
+    '.result .snip{color:#a1a1aa;font-size:12px;line-height:1.6}'+
+    '.abstract{border:1px solid #2a2a2a;border-radius:10px;padding:16px;margin-bottom:20px;background:#0d0d0d}'+
+    '.abstract .abs-title{color:white;font-size:14px;font-weight:600;margin-bottom:8px}'+
+    '.abstract p{color:#a1a1aa;font-size:12px;line-height:1.7}'+
+    '.no-results{color:#52525b;font-size:13px;text-align:center;padding:40px}'+
+    '.footer{text-align:center;padding:20px;color:#52525b;font-size:10px}'+
+    '</style></head><body>'+
+    '<h1>🔍 '+escapeHTML(query)+'</h1>'+
+    items+
+    '<div class="footer">XENA Search — Powered by DuckDuckGo</div>'+
+    '</body></html>';
+}
+
+function escapeHTML(s){
+  if(!s)return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function isYouTubeURL(url){
@@ -421,7 +502,11 @@ function newTab(url){
   var id='t-'+(++tc),tab={id:id,title:'Homepage',url:url||'',enc:'',favicon:null};
   if(url){
     var d=searchQuery(url);
-    tab.enc=d.startsWith('http')?proxyWithYouTube(d):d;
+    if(d && d.startsWith('__api__')){
+      searchAPI(d.replace('__api__',''));
+      return id;
+    }
+    tab.enc=d&&d.startsWith('http')?proxyWithYouTube(d):d;
     try{
       tab.title=new URL(d).hostname.replace('www.','');
       tab.favicon='https://www.google.com/s2/favicons?domain='+new URL(d).hostname+'&sz=16';
@@ -529,7 +614,14 @@ function updTab(id,raw,encd){
 // ============================================================
 function goSearch(){
   var v=$('searchfield').value.trim();
-  if(v)navigate(v);
+  if(v){
+    var mode=localStorage.getItem('xnDDGMode')||'api';
+    if(mode==='api'){
+      searchAPI(v);
+    } else {
+      navigate(v);
+    }
+  }
 }
 
 function goURL(){
@@ -540,6 +632,13 @@ function goURL(){
 function navigate(input){
   var d=searchQuery(input);
   if(!d)return;
+  
+  // Handle API search mode
+  if(d.startsWith('__api__')){
+    searchAPI(d.replace('__api__',''));
+    return;
+  }
+  
   if(d.startsWith('http')&&d.indexOf(location.host)===-1){
     hist=hist.filter(function(h){return h!==d;});
     hist.unshift(d);
@@ -748,7 +847,7 @@ function restoreInputs(){
   $('inp-block').value=localStorage.getItem('xnBlockExternal')||'yes';
   var savedMode = localStorage.getItem('xnTransportMode');
   if (savedMode) document.getElementById('inp-transport').value = savedMode;
-  var ddgMode = localStorage.getItem('xnDDGMode') || 'normal';
+  var ddgMode = localStorage.getItem('xnDDGMode') || 'api';
   if (document.getElementById('inp-ddgmode')) document.getElementById('inp-ddgmode').value = ddgMode;
 }
 
@@ -759,7 +858,7 @@ function saveSettings(){
   var purl=$('inp-panicurl').value.trim()||'https://classroom.google.com';
   var mode=$('inp-launch').value;
   var block=$('inp-block').value;
-  var ddg = document.getElementById('inp-ddgmode') ? document.getElementById('inp-ddgmode').value : 'normal';
+  var ddg = document.getElementById('inp-ddgmode') ? document.getElementById('inp-ddgmode').value : 'api';
 
   var lnk=document.querySelector('link[rel*="icon"]')||document.createElement('link');
   lnk.type='image/x-icon';
@@ -875,7 +974,6 @@ function initTransport() {
   }
 }
 
-// Listen for SW messages confirming transport change
 navigator.serviceWorker.addEventListener('message', function(event) {
   if (event.data && event.data.type === 'xena-transport-set') {
     var modeNames = ['', 'LE (BareClient)', 'FN (Epoxy)', 'XENA (Custom)'];
@@ -986,59 +1084,79 @@ function loadTabs() {
         $('rframe').src = activeTab.enc;
         $('urlbar').value = activeTab.url;
       }
-      tc = data.reduce(function(max, t) {
-        var num = parseInt(t.id.replace('t-', '')) || 0;
-        return num > max ? num : max;
-      }, 0);
       return true;
     }
   } catch(e) {}
   return false;
 }
 
-// Override navigation functions to save tabs
+// Override navTo, navigate, addTab, closeTab to persist
 var _origNavTo = navTo;
-navTo = function(id) { _origNavTo(id); setTimeout(saveTabs, 100); };
+navTo = function(id) {
+  _origNavTo(id);
+  setTimeout(saveTabs, 100);
+};
 
 var _origNavigate = navigate;
-navigate = function(input) { _origNavigate(input); setTimeout(saveTabs, 100); };
+navigate = function(input) {
+  _origNavigate(input);
+  setTimeout(saveTabs, 200);
+};
 
 var _origAddTab = addTab;
-addTab = function() { _origAddTab(); setTimeout(saveTabs, 100); };
+addTab = function() {
+  _origAddTab();
+  setTimeout(saveTabs, 50);
+};
 
 var _origCloseTab = closeTab;
-closeTab = function(id) { _origCloseTab(id); setTimeout(saveTabs, 100); };
+closeTab = function(id) {
+  _origCloseTab(id);
+  setTimeout(saveTabs, 50);
+};
 
 // ============================================================
 // INIT
 // ============================================================
-function init(){
-  var f = localStorage.getItem('xnFavicon');
-  var t = localStorage.getItem('xnTitle');
-  if(f){
-    var l = document.querySelector('link[rel*="icon"]') || document.createElement('link');
-    l.type = 'image/x-icon';
-    l.rel = 'shortcut icon';
-    l.href = f;
-    document.head.appendChild(l);
-  }
-  if(t) document.title = t;
+(function initXena(){
+  // Apply saved settings
+  var title = localStorage.getItem('xnTitle') || 'Google Classroom';
+  var fav = localStorage.getItem('xnFavicon') || 'https://ssl.gstatic.com/classroom/favicon.png';
+  document.title = title;
+  var lnk = document.querySelector('link[rel*="icon"]') || document.createElement('link');
+  lnk.type = 'image/x-icon';
+  lnk.rel = 'shortcut icon';
+  lnk.href = fav;
+  document.head.appendChild(lnk);
 
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function(err){
-      console.log('SW registration failed:', err.message);
-    });
-  }
-  
-  // Load saved tabs OR create new tab
-  if (!loadTabs()) {
+  // Load saved tabs or create default
+  var loaded = loadTabs();
+  if (!loaded) {
     newTab();
   }
-  
-  initTransport();
-}
 
-window.addEventListener('DOMContentLoaded',init);
+  // Init transport
+  initTransport();
+
+  // Hide splash after delay
+  setTimeout(function() {
+    var splash = $('splash-screen');
+    if (splash) splash.classList.add('hidden');
+  }, 3500);
+
+  // Animate splash progress
+  (function() {
+    var bar = document.getElementById('splash-progress');
+    if (bar) {
+      setTimeout(function() { bar.style.width = '33%'; }, 500);
+      setTimeout(function() { bar.style.width = '66%'; }, 1500);
+      setTimeout(function() { bar.style.width = '100%'; }, 2800);
+    }
+  })();
+
+  console.log('[XENA] Initialized v2.0 — DDG API mode');
+})();
 </script>
+
 </body>
 </html>
