@@ -1,78 +1,2031 @@
 <!DOCTYPE html>
+
+
 <html lang="en">
+
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Khan Academy</title>
-<!-- Your existing styles, including splash screen and look -->
-<!-- ... (keep your original CSS and layout) ... -->
+
+
+<meta charset="UTF-8">
+
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+
+<title>Google Classroom</title>
+
+
+<link rel="shortcut icon" href="https://ssl.gstatic.com/classroom/favicon.png">
+
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+
+
+<style>
+
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+
+html,body{height:100%;overflow:hidden;background:#000}
+
+
+body{color:#d4d4d8;font-family:'Inter',sans-serif;display:flex;flex-direction:column}
+
+
+::-webkit-scrollbar{width:4px;height:4px}
+
+
+::-webkit-scrollbar-track{background:#000}
+
+
+::-webkit-scrollbar-thumb{background:#181818;border-radius:2px}
+
+
+#stars-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;display:block}
+
+
+.no-scrollbar::-webkit-scrollbar{display:none}
+
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
+
+
+.modal-overlay.open{display:flex}
+
+
+.modal-box{background:#0a0a0a;border:1px solid #181818;border-radius:14px;padding:20px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto}
+
+
+.modal-box h3{font-size:11px;font-family:'JetBrains Mono',monospace;color:white;margin-bottom:14px;letter-spacing:0.08em;text-transform:uppercase}
+
+
+.modal-box input,.modal-box textarea,.modal-box select{width:100%;background:#000;border:1px solid #181818;border-radius:6px;padding:7px 10px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#d4d4d8;outline:none;box-sizing:border-box}
+
+
+.modal-box input:focus,.modal-box textarea:focus,.modal-box select:focus{border-color:#333}
+
+
+.modal-box label{font-size:9px;color:#52525b;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:4px}
+
+
+.modal-box .field{margin-bottom:10px}
+
+
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+
+
+.modal-actions button{padding:6px 14px;border-radius:6px;font-size:10px;font-family:'JetBrains Mono',monospace;border:1px solid #181818;background:#000;color:#a1a1aa;cursor:pointer;transition:all .15s}
+
+
+.modal-actions button:hover{border-color:#2a2a2a;color:white}
+
+
+.modal-actions button.primary{background:#181818;color:white;border-color:#2a2a2a}
+
+
+.modal-actions button.danger{background:#1a0000;color:#ef4444;border-color:#330000}
+
+
+.modal-actions button.warning{background:#1a1a00;color:#eab308;border-color:#332200}
+
+
+.stab-content{display:none}.stab-content.active{display:block}
+
+
+.xena-title{user-select:none;letter-spacing:0.12em}
+
+
+.error-page{position:absolute;inset:0;z-index:25;background:#030303;display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center}
+
+
+.error-page .code{font-family:'JetBrains Mono',monospace;font-size:48px;font-weight:700;color:#ef4444;letter-spacing:0.05em}
+
+
+.error-page .title{font-family:'JetBrains Mono',monospace;font-size:12px;color:#a1a1aa;margin-top:8px}
+
+
+.error-page .msg{font-family:'Inter',sans-serif;font-size:11px;color:#52525b;margin-top:16px;max-width:400px;line-height:1.6}
+
+
+.error-page .acts{display:flex;gap:8px;margin-top:24px;flex-wrap:wrap;justify-content:center}
+
+
+.error-page .acts button{padding:8px 16px;border-radius:6px;font-size:10px;font-family:'JetBrains Mono',monospace;border:1px solid #181818;background:#000;color:#a1a1aa;cursor:pointer;transition:all .15s}
+
+
+.error-page .acts button:hover{border-color:#333;color:white}
+
+
+.tab-icon{width:12px;height:12px;border-radius:2px;object-fit:contain;margin-right:4px;display:inline-block;vertical-align:middle}
+
+
+#splash-screen{position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;transition:opacity .5s}
+
+
+#splash-screen.hidden{opacity:0;pointer-events:none}
+
+
+#splash-screen h1{font-family:'JetBrains Mono',monospace;font-size:24px;color:white;margin-bottom:8px;letter-spacing:0.1em}
+
+
+#splash-screen p{font-family:'Inter',sans-serif;font-size:12px;color:#52525b;max-width:400px;line-height:1.6}
+
+
+#splash-screen .progress{width:200px;height:2px;background:#181818;border-radius:2px;margin-top:24px;overflow:hidden}
+
+
+#splash-screen .progress div{height:100%;background:#52525b;width:0%;transition:width 3s linear;border-radius:2px}
+
+
+</style>
+
+
 </head>
+
+
 <body>
-<!-- Splash screen to mimic tutoring site -->
-<div id="splash" style="position:fixed; inset:0; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999;">
-  <img src="https://cdn.khanacademy.org/images/khan-logo.png" alt="Khan Academy" style="width:150px;"/>
-  <h1 style="margin-top:16px; color:#333;">Khan Academy</h1>
-  <p style="color:#555;">Loading...</p>
+
+
+
+<canvas id="stars-canvas"></canvas>
+
+
+
+<!-- SPLASH -->
+
+
+<div id="splash-screen">
+
+
+  <h1>XENA</h1>
+
+
+  <svg class="w-16 h-2 text-zinc-700 opacity-80 mb-4" viewBox="0 0 100 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12 Q 25 2, 50 12 T 95 12"/></svg>
+
+
+  <p>The web is a vast collection of interconnected documents and resources, accessed through the internet using web browsers.</p>
+
+
+  <div class="progress"><div id="splash-progress"></div></div>
+
+
 </div>
 
-<!-- Your main content remains unchanged -->
-<!-- ... (header, iframe, footer, modals, scripts) ... -->
+
+
+<script>if(top!==self){top.location.href=self.location.href}</script>
+
+
+
+<!-- STARS SCRIPT (same as before) -->
+
+
+<script>
+
+
+(function(){
+
+
+  var c=document.getElementById('stars-canvas');
+
+
+  if(!c)return;
+
+
+  var x=c.getContext('2d'),w,h,stars=[],meteors=[],
+
+
+      lw=window.innerWidth,lh=window.innerHeight;
+
+
+  c.width=lw;c.height=lh;w=lw;h=lh;
+
+
+  var n=Math.max(Math.floor((lw*lh)/6500),100);
+
+
+  for(var i=0;i<n;i++)stars.push({
+
+
+    x:Math.random()lw,y:Math.random()lh,r:Math.random()*1.6+0.2,
+
+
+    ba:Math.random()0.6+0.1,al:Math.random()0.6+0.1,
+
+
+    sp:Math.random()0.025+0.003,ph:Math.random()Math.PI*2,
+
+
+    co:Math.random()>0.98?'255,200,150':(Math.random()>0.96?'150,180,255':'220,225,250')
+
+
+  });
+
+
+  window.addEventListener('resize',function(){
+
+
+    w=window.innerWidth;h=window.innerHeight;c.width=w;c.height=h;
+
+
+    stars.length=0;
+
+
+    var n2=Math.max(Math.floor((w*h)/6500),100);
+
+
+    for(var i=0;i<n2;i++)stars.push({
+
+
+      x:Math.random()w,y:Math.random()h,r:Math.random()*1.6+0.2,
+
+
+      ba:Math.random()0.6+0.1,al:Math.random()0.6+0.1,
+
+
+      sp:Math.random()0.025+0.003,ph:Math.random()Math.PI*2,
+
+
+      co:Math.random()>0.98?'255,200,150':(Math.random()>0.96?'150,180,255':'220,225,250')
+
+
+    });
+
+
+  });
+
+
+  var mTimer=0;
+
+
+  function dr(){
+
+
+    x.clearRect(0,0,w,h);
+
+
+    for(var i=0;i<stars.length;i++){
+
+
+      var s=stars[i];
+
+
+      s.al=s.ba+Math.sin(Date.now()s.sp+s.ph)0.3;
+
+
+      if(s.al<0.05)s.al=0.05;if(s.al>0.95)s.al=0.95;
+
+
+      x.beginPath();x.arc(s.x,s.y,s.r,0,Math.PI*2);
+
+
+      x.fillStyle='rgba('+s.co+','+s.al+')';x.fill();
+
+
+    }
+
+
+    mTimer++;
+
+
+    if(mTimer>3600+Math.random()*3600){
+
+
+      mTimer=0;meteors.push({
+
+
+        x:Math.random()w0.9,y:Math.random()h0.15,
+
+
+        vx:-(Math.random()10+4),vy:Math.random()2+1,
+
+
+        li:1.0,co:Math.random()<0.1?'255,80,80':'80,130,255',ln:Math.random()*4+2
+
+
+      });
+
+
+    }
+
+
+    for(var i=meteors.length-1;i>=0;i--){
+
+
+      var m=meteors[i];m.x+=m.vx;m.y+=m.vy;m.li-=0.015;
+
+
+      if(m.li<=0||m.x<-60||m.y>h+60){meteors.splice(i,1);continue;}
+
+
+      x.beginPath();x.moveTo(m.x,m.y);x.lineTo(m.x-m.vxm.ln,m.y-m.vym.ln);
+
+
+      x.strokeStyle='rgba('+m.co+','+m.li*0.6+')';x.lineWidth=2;x.stroke();
+
+
+    }
+
+
+    requestAnimationFrame(dr);
+
+
+  }
+
+
+  dr();
+
+
+})();
+
+
+</script>
+
+
+
+<!-- SPLASH LOGIC -->
+
+
+<script>
+
+
+(function(){
+
+
+  if(localStorage.getItem('xnSplashDone')){
+
+
+    document.getElementById('splash-screen').classList.add('hidden');
+
+
+    return;
+
+
+  }
+
+
+  var bar=document.getElementById('splash-progress');
+
+
+  setTimeout(function(){bar.style.width='100%';},100);
+
+
+  setTimeout(function(){
+
+
+    document.getElementById('splash-screen').classList.add('hidden');
+
+
+    localStorage.setItem('xnSplashDone','1');
+
+
+  },4000);
+
+
+})();
+
+
+</script>
+
+
+
+<!-- HEADER -->
+
+
+<header class="flex items-center h-11 px-3 bg-black/95 border-b border-zinc-900 select-none shrink-0 relative z-20">
+
+
+  <div class="flex items-center gap-1 mr-2">
+
+
+    <button onclick="nav('back')" class="flex items-center justify-center w-7 h-7 rounded-md hover:bg-zinc-900 text-zinc-500 hover:text-white transition">
+
+
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+
+
+    </button>
+
+
+    <button onclick="nav('forward')" class="flex items-center justify-center w-7 h-7 rounded-md hover:bg-zinc-900 text-zinc-500 hover:text-white transition">
+
+
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+
+
+    </button>
+
+
+    <button onclick="nav('reload')" class="flex items-center justify-center w-7 h-7 rounded-md hover:bg-zinc-900 text-zinc-500 hover:text-white transition">
+
+
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+
+
+    </button>
+
+
+  </div>
+
+
+  <div class="flex-1 flex h-7 rounded-lg border border-zinc-800 bg-[#050505] overflow-hidden focus-within:border-zinc-600 transition">
+
+
+    <div class="flex items-center px-2 bg-zinc-950 text-zinc-500 text-[9px] font-mono border-r border-zinc-900 shrink-0">
+
+
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+
+
+    </div>
+
+
+    <input type="text" id="urlbar" placeholder="" spellcheck="false" autocomplete="off" class="flex-1 px-3 text-[11px] bg-transparent outline-none text-white placeholder-zinc-800 font-mono w-full">
+
+
+    <button onclick="goURL()" class="px-3 bg-zinc-900 border-l border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white text-[9px] font-mono tracking-wider uppercase transition">Go</button>
+
+
+  </div>
+
+
+</header>
+
+
+
+<!-- TAB BAR -->
+
+
+<section class="flex items-end justify-between px-3 bg-black/95 border-b border-zinc-900 h-9 select-none shrink-0 overflow-x-auto no-scrollbar relative z-20">
+
+
+  <div class="flex items-end gap-1" id="tabbar"></div>
+
+
+  <div class="flex items-center gap-1.5 mb-0.5">
+
+
+    <button onclick="openSettings()" class="flex items-center justify-center w-6 h-6 rounded border border-zinc-800 bg-[#050505] text-zinc-500 hover:text-white transition" title="Settings">
+
+
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+
+
+    </button>
+
+
+  </div>
+
+
+</section>
+
+
+
+<!-- MAIN -->
+
+
+<main class="flex-1 relative bg-[#030303] overflow-hidden flex flex-col">
+
+
+
+  <!-- HOMEPAGE -->
+
+
+  <div id="homepage" class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-transparent px-4">
+
+
+    <div class="max-w-xl w-full flex flex-col items-center text-center space-y-5">
+
+
+      <div class="select-none cursor-default">
+
+
+        <h1 class="xena-title text-7xl font-extrabold text-white font-mono drop-shadow-[0_0_15px_rgba(255,255,255,0.08)]">XENA</h1>
+
+
+        <div class="flex items-center justify-center mt-1">
+
+
+          <svg class="w-20 h-3 text-zinc-700 opacity-80" viewBox="0 0 100 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12 Q 25 2, 50 12 T 95 12"/></svg>
+
+
+        </div>
+
+
+        <span class="block text-[10px] text-zinc-600 tracking-[0.3em] font-mono mt-1 uppercase">v2</span>
+
+
+      </div>
+
+
+      <div class="w-full flex h-10 rounded-lg border border-zinc-800 bg-black/80 overflow-hidden focus-within:border-zinc-600 transition duration-150 backdrop-blur-sm">
+
+
+        <div class="flex items-center px-3 bg-zinc-950 text-zinc-500 text-[10px] border-r border-zinc-900 font-mono shrink-0">DDG</div>
+
+
+        <input type="text" id="searchfield" placeholder="" spellcheck="false" autocomplete="off" class="flex-1 px-4 text-white bg-transparent outline-none text-xs placeholder-zinc-600 font-mono w-full">
+
+
+        <button onclick="goSearch()" class="px-4 bg-zinc-900 border-l border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white text-[10px] font-mono tracking-widest uppercase transition">Go</button>
+
+
+      </div>
+
+
+    </div>
+
+
+  </div>
+
+
+
+  <!-- IFRAME (Scramjet) -->
+
+
+  <iframe id="rframe" class="absolute inset-0 w-full h-full border-none z-20" sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts allow-top-navigation allow-downloads" style="display:none" src="about:blank"></iframe>
+
+
+
+  <!-- ERROR PAGE -->
+
+
+  <div id="errpage" class="error-page">
+
+
+    <div class="code" id="errcode">XNA-000</div>
+
+
+    <div class="title" id="errtitle">Error</div>
+
+
+    <div class="msg" id="errmsg">Something went wrong.</div>
+
+
+    <div class="acts">
+
+
+      <button onclick="location.reload()">Reload</button>
+
+
+      <button onclick="goHome()">Home</button>
+
+
+    </div>
+
+
+  </div>
+
+
+</main>
+
+
+
+<!-- FOOTER -->
+
+
+<footer class="flex items-center justify-between h-8 px-4 bg-black/95 border-t border-zinc-900 select-none shrink-0 relative z-20">
+
+
+  <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" id="statusdot"></span></div>
+
+
+  <div class="flex items-center gap-2"><span id="footerstatus" class="text-[10px] font-mono text-zinc-600">loading scramjet...</span></div>
+
+
+  <div class="flex items-center gap-2"><span id="footerclock" class="text-[10px] font-mono text-zinc-600"></span></div>
+
+
+</main>
+
+
+
+<!-- SETTINGS MODAL -->
+
+
+<div id="setmodal" class="modal-overlay">
+
+
+  <div class="modal-box">
+
+
+    <h3>Settings</h3>
+
+
+    <div class="flex gap-2 mb-4 flex-wrap">
+
+
+      <button class="tab-btn active" onclick="switchPane('pane-cloak',this)">Cloak</button>
+
+
+      <button class="tab-btn" onclick="switchPane('pane-engine',this)">Engine</button>
+
+
+      <button class="tab-btn" onclick="switchPane('pane-hist',this)">History</button>
+
+
+      <button class="tab-btn" onclick="switchPane('pane-reset',this)">Reset</button>
+
+
+    </div>
+
+
+
+    <div id="pane-cloak" class="stab-content active">
+
+
+      <div class="field"><label>Favicon URL</label><input type="text" id="inp-favicon"></div>
+
+
+      <div class="field"><label>Page Title</label><input type="text" id="inp-title" value="Google Classroom"></div>
+
+
+      <div class="field"><label>Panic Key</label><input type="text" id="inp-panickey" value="Escape"></div>
+
+
+      <div class="field"><label>Panic URL</label><input type="text" id="inp-panicurl" value="https://classroom.google.com"></div>
+
+
+      <div class="field"><label>Search Mode</label><select id="inp-ddgmode"><option value="api">API (No CAPTCHA)</option><option value="google">Google Direct</option></select></div>
+
+
+      <div class="modal-actions"><button onclick="closeModal('setmodal')">Cancel</button><button class="primary" onclick="saveSettings()">Save</button></div>
+
+
+    </div>
+
+
+
+    <div id="pane-engine" class="stab-content">
+
+
+      <div class="field">
+
+
+        <label>Proxy Engine</label>
+
+
+        <select id="inp-engine">
+
+
+          <option value="scramjet">Scramjet — CAPTCHA, Discord, TikTok, YouTube</option>
+
+
+          <option value="direct">Direct — No proxy (Google search fallback)</option>
+
+
+        </select>
+
+
+      </div>
+
+
+      <div class="field">
+
+
+        <label>Transport</label>
+
+
+        <select id="inp-transport">
+
+
+          <option value="bare">Bare Server</option>
+
+
+        </select>
+
+
+      </div>
+
+
+      <p class="text-[9px] text-zinc-600 font-mono leading-relaxed mb-3">
+
+
+        Scramjet handles CAPTCHA, Discord login, TikTok, YouTube, Spotify.<br>
+
+
+        Switch engines without losing tabs.
+
+
+      </p>
+
+
+      <div class="modal-actions"><button onclick="closeModal('setmodal')">Cancel</button><button class="primary" onclick="saveEngine()">Apply</button></div>
+
+
+    </div>
+
+
+
+    <div id="pane-hist" class="stab-content">
+
+
+      <div id="histlist" style="max-height:200px;overflow-y:auto"></div>
+
+
+      <div class="modal-actions"><button class="danger" onclick="clearHist()">Clear</button><button onclick="closeModal('setmodal')">Done</button></div>
+
+
+    </div>
+
+
+
+    <div id="pane-reset" class="stab-content">
+
+
+      <p class="text-[10px] text-zinc-500 font-mono mb-3">Reset settings, clear history, re-register service worker.</p>
+
+
+      <div class="modal-actions flex gap-2">
+
+
+        <button class="warning" onclick="resetSW()">Reset SW</button>
+
+
+        <button class="danger" onclick="resetXena()">Reset Xena</button>
+
+
+        <button onclick="closeModal('setmodal')">Cancel</button>
+
+
+      </div>
+
+
+    </div>
+
+
+  </div>
+
+
+</div>
+
+
+
+<!-- ============================================================ -->
+
+
+<!-- APPLICATION SCRIPT -->
+
+
+<!-- ============================================================ -->
+
 
 <script src="/engine.js"></script>
+
+
 <script>
-(function() {
-  'use strict';
 
-  let scramjetController, scramjetFrame;
 
-  async function loadScramjet() {
-    if (typeof ScramjetController !== 'undefined') return;
-    await new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = '/scram/scramjet.bundle.js';
-      s.onload = res;
-      s.onerror = rej;
-      document.head.appendChild(s);
-    });
+// ============================================================
+
+
+// STORAGE HELPERS
+
+
+// ============================================================
+
+
+function $(id){return document.getElementById(id)}
+
+
+var K=[120,101,110,97];
+
+
+
+// ============================================================
+
+
+// STATE
+
+
+// ============================================================
+
+
+var tabs=[],actTab=null,tc=0;
+
+
+var hist=JSON.parse(localStorage.getItem('xnHist')||'[]');
+
+
+var errs=JSON.parse(localStorage.getItem('xnErrors')||'[]');
+
+
+
+// ============================================================
+
+
+// FUN FACTS
+
+
+// ============================================================
+
+
+var funFacts=["Honey never spoils.","Octopuses have three hearts.","Bananas are berries, but strawberries aren't.","A day on Venus is longer than a year on Venus.","The Eiffel Tower can be 15 cm taller during summer.","Your brain uses about 20% of your bodys oxygen."];
+
+
+var fi=0,ft=document.querySelector('#searchfield');
+
+
+if(ft){
+
+
+  ft.placeholder=funFacts[0];
+
+
+  setInterval(function(){fi=(fi+1)%funFacts.length;if(!ft.value)ft.placeholder=funFacts[fi];},30000);
+
+
+}
+
+
+
+// ============================================================
+
+
+// SEARCH + NAVIGATION
+
+
+// ============================================================
+
+
+function searchQuery(q) {
+
+
+  var t = q.trim();
+
+
+  if (!t) return '';
+
+
+  if (/^https?:\/\//i.test(t)) return t;
+
+
+  if (/^[a-z0-9]([a-z0-9.-][a-z0-9])?\.[a-z]{2,}(\/.)?$/i.test(t)) return 'https://' + t;
+
+
+  var mode = localStorage.getItem('xnDDGMode') || 'api';
+
+
+  if (mode === 'google') return 'https://www.google.com/search?q=' + encodeURIComponent(t) + '&udm=2';
+
+
+  return '__api__' + t;
+
+
+}
+
+
+
+function navigate(input) {
+
+
+  var d = searchQuery(input);
+
+
+  if (!d) return;
+
+
+
+  if (d.startsWith('__api__')) {
+
+
+    searchAPI(d.replace('__api__', ''));
+
+
+    return;
+
+
   }
 
-  async function init() {
-    await loadScramjet();
-    const { ScramjetController } = window;
-    scramjetController = new ScramjetController({
-      prefix: '/scram/',
-      files: {
-        wasm: '/scram/scramjet.wasm.wasm',
-        all: '/scram/scramjet.all.js',
-        sync: '/scram/scramjet.sync.js'
-      },
-      flags: {
-        strictRewrites: true,
-        captureErrors: true
-      }
-    });
-    await scramjetController.init();
-    const iframe = document.getElementById('rframe');
-    scramjetFrame = scramjetController.createFrame(iframe);
-    document.getElementById('splash').style.display='none';
+
+
+  // Add to history
+
+
+  if (d.startsWith('http') && d.indexOf(location.host) === -1) {
+
+
+    hist = hist.filter(function(h) { return h !== d; });
+
+
+    hist.unshift(d);
+
+
+    if (hist.length > 50) hist = hist.slice(0, 50);
+
+
+    localStorage.setItem('xnHist', JSON.stringify(hist));
+
+
   }
 
-  window.onload = init;
 
-  window.XENA = { 
-    navigate: (url) => {
-      if (!scramjetController || !scramjetFrame) {
-        document.getElementById('rframe').src = '/scram/' + btoa(url);
-      } else {
-        try {
-          scramjetFrame.navigate(url);
-        } catch(e) {
-          document.getElementById('rframe').src = '/scram/' + btoa(url);
-        }
+
+  // Show iframe, hide homepage
+
+
+  $('homepage').style.display = 'none';
+
+
+  hideErr();
+
+
+  $('rframe').style.display = 'block';
+
+
+
+  // Update tab
+
+
+  var t = tabs.find(function(x) { return x.id === actTab; });
+
+
+  if (t) { t.url = d; t.title = extractTitle(d); t.favicon = faviconFor(d); }
+
+
+  renderTabs();
+
+
+  $('urlbar').value = d;
+
+
+
+  // Navigate via Scramjet
+
+
+  if (window.XENA && window.XENA.navigate) {
+
+
+    window.XENA.navigate(d);
+
+
+  } else {
+
+
+    // Fallback direct
+
+
+    $('rframe').src = d;
+
+
+  }
+
+
+}
+
+
+
+function extractTitle(url) {
+
+
+  try { return new URL(url).hostname.replace('www.', ''); } catch(e) { return url; }
+
+
+}
+
+
+
+function faviconFor(url) {
+
+
+  try { return 'https://www.google.com/s2/favicons?domain=' + new URL(url).hostname + '&sz=16'; } catch(e) { return null; }
+
+
+}
+
+
+
+// ============================================================
+
+
+// SEARCH API (DDG - no CAPTCHA)
+
+
+// ============================================================
+
+
+function searchAPI(query) {
+
+
+  var statusDot = $('statusdot');
+
+
+  statusDot.style.background = '#eab308';
+
+
+  statusDot.style.boxShadow = '0 0 4px #eab308';
+
+
+  $('footerstatus').textContent = 'searching';
+
+
+
+  fetch('/api/search?q=' + encodeURIComponent(query))
+
+
+    .then(function(r) { return r.json(); })
+
+
+    .then(function(data) {
+
+
+      statusDot.style.background = '#22c55e';
+
+
+      statusDot.style.boxShadow = '0 0 4px #22c55e';
+
+
+      $('footerstatus').textContent = 'connected';
+
+
+
+      var html = buildSearchResults(query, data);
+
+
+      var blob = new Blob([html], { type: 'text/html' });
+
+
+      var url = URL.createObjectURL(blob);
+
+
+
+      var t = tabs.find(function(x) { return x.id === actTab; });
+
+
+      if (t) {
+
+
+        t.url = 'search:' + query;
+
+
+        t.title = 'Search: ' + query;
+
+
+        t.favicon = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="%2322c55e"/></svg>';
+
+
       }
+
+
+      $('homepage').style.display = 'none';
+
+
+      hideErr();
+
+
+      $('rframe').style.display = 'block';
+
+
+      $('rframe').src = url;
+
+
+      $('urlbar').value = 'search: ' + query;
+
+
+      $('searchfield').value = '';
+
+
+      renderTabs();
+
+
+    })
+
+
+    .catch(function(err) {
+
+
+      navigate('https://www.google.com/search?q=' + encodeURIComponent(query));
+
+
+    });
+
+
+}
+
+
+
+function buildSearchResults(query, data) {
+
+
+  var items = '';
+
+
+  if (data.abstract && data.heading) {
+
+
+    items += '<div class="abstract"><div class="abs-title">' + escHtml(data.heading) + '</div><p>' + escHtml(data.abstract) + '</p></div>';
+
+
+  }
+
+
+  if (data.results && data.results.length > 0) {
+
+
+    for (var i = 0; i < data.results.length; i++) {
+
+
+      var r = data.results[i];
+
+
+      items += '<div class="result"><a href="' + r.url + '" onclick="event.preventDefault(); parent.postMessage({type:\'xena-navigate\',url:\'' + r.url.replace(/'/g, "\\'") + '\'},\'*\')">' + escHtml(r.title) + '</a><div class="url">' + r.url + '</div><div class="snip">' + escHtml(r.snippet) + '</div></div>';
+
+
     }
-  };
-})();
+
+
+  } else {
+
+
+    items += '<div class="no-results">No results found.</div>';
+
+
+  }
+
+
+
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + escHtml(query) + ' - XENA Search</title>' +
+
+
+    '<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#030303;color:#d4d4d8;font-family:system-ui,-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:20px;min-height:100vh}' +
+
+
+    'h1{font-size:20px;font-weight:700;color:white;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid #181818}' +
+
+
+    '.result{border:1px solid #181818;border-radius:10px;padding:14px;margin-bottom:10px;background:#0a0a0a}' +
+
+
+    '.result:hover{border-color:#2a2a2a}' +
+
+
+    '.result a{color:#5b9aff;text-decoration:none;font-size:14px;font-weight:500;display:block;margin-bottom:4px;cursor:pointer}' +
+
+
+    '.result a:hover{text-decoration:underline}' +
+
+
+    '.result .url{color:#22c55e;font-size:11px;margin-bottom:6px;word-break:break-all}' +
+
+
+    '.result .snip{color:#a1a1aa;font-size:12px;line-height:1.6}' +
+
+
+    '.abstract{border:1px solid #2a2a2a;border-radius:10px;padding:16px;margin-bottom:20px;background:#0d0d0d}' +
+
+
+    '.abstract .abs-title{color:white;font-size:14px;font-weight:600;margin-bottom:8px}' +
+
+
+    '.abstract p{color:#a1a1aa;font-size:12px;line-height:1.7}' +
+
+
+    '.no-results{color:#52525b;font-size:13px;text-align:center;padding:40px}' +
+
+
+    '.footer{text-align:center;padding:20px;color:#52525b;font-size:10px}' +
+
+
+    '</style></head><body>' +
+
+
+    '<h1>&#128269; ' + escHtml(query) + '</h1>' +
+
+
+    items +
+
+
+    '<div class="footer">XENA Search — DuckDuckGo</div>' +
+
+
+    '<script>document.querySelectorAll(\'.result a\').forEach(function(a){a.addEventListener(\'click\',function(e){e.preventDefault();window.parent.postMessage({type:\'xena-navigate\',url:this.href},\'*\');});});<' + '/script>' +
+
+
+    '</body></html>';
+
+
+}
+
+
+
+function escHtml(s) {
+
+
+  if (!s) return '';
+
+
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+
+}
+
+
+
+// ============================================================
+
+
+// EVENT LISTENERS
+
+
+// ============================================================
+
+
+// Listen for navigation messages from search results iframe
+
+
+window.addEventListener('message', function(e) {
+
+
+  if (e.data && e.data.type === 'xena-navigate') {
+
+
+    navigate(e.data.url);
+
+
+  }
+
+
+});
+
+
+
+// URL bar + search field
+
+
+$('urlbar').addEventListener('keydown', function(e) {
+
+
+  if (e.key === 'Enter') { e.preventDefault(); goURL(); }
+
+
+});
+
+
+$('searchfield').addEventListener('keydown', function(e) {
+
+
+  if (e.key === 'Enter') { e.preventDefault(); goSearch(); }
+
+
+});
+
+
+
+function goSearch() {
+
+
+  var v = $('searchfield').value.trim();
+
+
+  if (v) {
+
+
+    var mode = localStorage.getItem('xnDDGMode') || 'api';
+
+
+    if (mode === 'api') searchAPI(v);
+
+
+    else navigate(v);
+
+
+  }
+
+
+}
+
+
+
+function goURL() {
+
+
+  var v = $('urlbar').value.trim();
+
+
+  if (v) navigate(v);
+
+
+}
+
+
+
+function nav(dir) {
+
+
+  try {
+
+
+    var f = $('rframe');
+
+
+    if (!f.contentWindow) return;
+
+
+    if (dir === 'back') f.contentWindow.history.back();
+
+
+    else if (dir === 'forward') f.contentWindow.history.forward();
+
+
+    else if (dir === 'reload') f.contentWindow.location.reload();
+
+
+  } catch(e) {}
+
+
+}
+
+
+
+function goHome() {
+
+
+  var t = tabs.find(function(x) { return x.id === actTab; });
+
+
+  if (t) { t.url = ''; t.title = 'Homepage'; t.favicon = null; }
+
+
+  $('rframe').style.display = 'none';
+
+
+  $('rframe').src = 'about:blank';
+
+
+  hideErr();
+
+
+  $('homepage').style.display = 'flex';
+
+
+  $('urlbar').value = '';
+
+
+  $('searchfield').value = '';
+
+
+  renderTabs();
+
+
+}
+
+
+
+// ============================================================
+
+
+// TABS
+
+
+// ============================================================
+
+
+function newTab(url) {
+
+
+  var id = 't-' + (++tc);
+
+
+  var tab = { id: id, title: 'Homepage', url: url || '', enc: '', favicon: null };
+
+
+  tabs.push(tab);
+
+
+  actTab = id;
+
+
+  renderTabs();
+
+
+  if (url) navigate(url);
+
+
+  else switchTab(id);
+
+
+  return id;
+
+
+}
+
+
+
+function renderTabs() {
+
+
+  var con = $('tabbar');
+
+
+  con.innerHTML = '';
+
+
+  for (var i = 0; i < tabs.length; i++) {
+
+
+    var t = tabs[i], a = t.id === actTab;
+
+
+    var di = document.createElement('div');
+
+
+    di.className = 'group flex items-center gap-1 px-2.5 h-7 rounded-t-lg border-t border-x border-zinc-800 cursor-pointer transition min-w-[110px] max-w-[160px] hover:border-zinc-700';
+
+
+    di.style.background = a ? '#050505' : '#000';
+
+
+    di.style.color = a ? 'white' : '#71717a';
+
+
+    var ic = document.createElement('img');
+
+
+    ic.className = 'tab-icon';
+
+
+    ic.src = t.favicon || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="%23333"/></svg>';
+
+
+    ic.onerror = function() { this.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="%23555"/></svg>'; };
+
+
+    var sp = document.createElement('span');
+
+
+    sp.className = 'text-[10px] font-mono truncate flex-1';
+
+
+    sp.textContent = t.title;
+
+
+    var cl = document.createElement('button');
+
+
+    cl.className = 'text-zinc-700 hover:text-zinc-400 text-[9px] ml-0.5 leading-none px-0.5';
+
+
+    cl.textContent = 'x';
+
+
+    (function(tid) { cl.onclick = function(e) { e.stopPropagation(); closeTab(tid); }; })(t.id);
+
+
+    if (tabs.length === 1) cl.style.display = 'none';
+
+
+    (function(tid) { di.onclick = function() { switchTab(tid); }; })(t.id);
+
+
+    di.appendChild(ic); di.appendChild(sp); di.appendChild(cl);
+
+
+    con.appendChild(di);
+
+
+  }
+
+
+  var nt = document.createElement('button');
+
+
+  nt.className = 'flex items-center justify-center w-6 h-6 rounded border border-zinc-800 hover:bg-zinc-900 text-zinc-500 hover:text-white transition text-sm font-mono mb-0.5';
+
+
+  nt.textContent = '+';
+
+
+  nt.title = 'New Tab';
+
+
+  nt.onclick = function() { addTab(); };
+
+
+  con.appendChild(nt);
+
+
+}
+
+
+
+function addTab() { newTab(); }
+
+
+
+function switchTab(id) {
+
+
+  actTab = id;
+
+
+  var t = tabs.find(function(x) { return x.id === id; });
+
+
+  if (!t) return;
+
+
+  renderTabs();
+
+
+  hideErr();
+
+
+  if (t.url && t.url !== 'about:blank') {
+
+
+    $('homepage').style.display = 'none';
+
+
+    $('rframe').style.display = 'block';
+
+
+    if (t._cachedSrc) $('rframe').src = t._cachedSrc;
+
+
+    $('urlbar').value = t.url;
+
+
+  } else {
+
+
+    $('homepage').style.display = 'flex';
+
+
+    $('rframe').style.display = 'none';
+
+
+    $('rframe').src = 'about:blank';
+
+
+    $('urlbar').value = '';
+
+
+  }
+
+
+  $('searchfield').value = '';
+
+
+}
+
+
+
+function closeTab(id) {
+
+
+  if (tabs.length <= 1) {
+
+
+    var t = tabs[0];
+
+
+    t.url = ''; t.title = 'Homepage'; t.favicon = null;
+
+
+    renderTabs(); switchTab(t.id); return;
+
+
+  }
+
+
+  var idx = tabs.findIndex(function(x) { return x.id === id; });
+
+
+  tabs = tabs.filter(function(x) { return x.id !== id; });
+
+
+  if (actTab === id) actTab = tabs[Math.min(idx, tabs.length - 1)].id;
+
+
+  renderTabs(); switchTab(actTab);
+
+
+}
+
+
+
+// ============================================================
+
+
+// ERRORS
+
+
+// ============================================================
+
+
+function showErr(c, t, m) {
+
+
+  $('errcode').textContent = c;
+
+
+  $('errtitle').textContent = t;
+
+
+  $('errmsg').textContent = m;
+
+
+  $('errpage').style.display = 'flex';
+
+
+}
+
+
+
+function hideErr() {
+
+
+  $('errpage').style.display = 'none';
+
+
+}
+
+
+
+// ============================================================
+
+
+// SETTINGS
+
+
+// ============================================================
+
+
+function openSettings() {
+
+
+  // Load current settings
+
+
+  $('inp-favicon').value = localStorage.getItem('xnFavicon') || 'https://ssl.gstatic.com/classroom/favicon.png';
+
+
+  $('inp-title').value = localStorage.getItem('xnTitle') || 'Google Classroom';
+
+
+  $('inp-panickey').value = localStorage.getItem('xnPanicKey') || 'Escape';
+
+
+  $('inp-panicurl').value = localStorage.getItem('xnPanicURL') || 'https://classroom.google.com';
+
+
+  $('inp-ddgmode').value = localStorage.getItem('xnDDGMode') || 'api';
+
+
+  $('inp-engine').value = localStorage.getItem('xnEngine') || 'scramjet';
+
+
+  $('inp-transport').value = localStorage.getItem('xnTransport') || 'bare';
+
+
+
+  // Load history
+
+
+  var histHtml = '';
+
+
+  var h = JSON.parse(localStorage.getItem('xnHist') || '[]');
+
+
+  for (var i = 0; i < Math.min(h.length, 20); i++) {
+
+
+    histHtml += '<div class="text-[10px] font-mono text-zinc-500 py-1 border-b border-zinc-900 truncate">' + escHtml(h[i]) + '</div>';
+
+
+  }
+
+
+  $('histlist').innerHTML = histHtml || '<div class="text-[10px] font-mono text-zinc-600 py-4 text-center">No history</div>';
+
+
+
+  $('setmodal').classList.add('open');
+
+
+}
+
+
+
+function closeModal(id) {
+
+
+  $(id).classList.remove('open');
+
+
+}
+
+
+
+function saveSettings() {
+
+
+  localStorage.setItem('xnFavicon', $('inp-favicon').value);
+
+
+  localStorage.setItem('xnTitle', $('inp-title').value);
+
+
+  localStorage.setItem('xnPanicKey', $('inp-panickey').value);
+
+
+  localStorage.setItem('xnPanicURL', $('inp-panicurl').value);
+
+
+  localStorage.setItem('xnDDGMode', $('inp-ddgmode').value);
+
+
+
+  // Apply cloaking
+
+
+  document.title = $('inp-title').value;
+
+
+  var link = document.querySelector('link[rel="shortcut icon"]') || document.querySelector('link[rel="icon"]');
+
+
+  if (link) link.href = $('inp-favicon').value;
+
+
+
+  closeModal('setmodal');
+
+
+}
+
+
+
+function saveEngine() {
+
+
+  var engine = $('inp-engine').value;
+
+
+  localStorage.setItem('xnEngine', engine);
+
+
+  localStorage.setItem('xnTransport', $('inp-transport').value);
+
+
+
+  if (window.XENA && window.XENA.switchEngine) {
+
+
+    window.XENA.switchEngine(engine);
+
+
+  }
+
+
+
+  $('footerstatus').textContent = 'engine: ' + engine;
+
+
+  closeModal('setmodal');
+
+
+}
+
+
+
+function switchPane(id, btn) {
+
+
+  document.querySelectorAll('.stab-content').forEach(function(e) { e.classList.remove('active'); });
+
+
+  document.querySelectorAll('.tab-btn').forEach(function(e) { e.classList.remove('active'); });
+
+
+  $(id).classList.add('active');
+
+
+  if (btn) btn.classList.add('active');
+
+
+}
+
+
+
+function clearHist() {
+
+
+  localStorage.setItem('xnHist', '[]');
+
+
+  hist = [];
+
+
+  $('histlist').innerHTML = '<div class="text-[10px] font-mono text-zinc-600 py-4 text-center">Cleared</div>';
+
+
+}
+
+
+
+function resetSW() {
+
+
+  if ('serviceWorker' in navigator) {
+
+
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+
+
+      for (var r of regs) r.unregister();
+
+
+    });
+
+
+  }
+
+
+  caches.keys().then(function(names) {
+
+
+    for (var n of names) caches.delete(n);
+
+
+  });
+
+
+  $('footerstatus').textContent = 'sw reset';
+
+
+}
+
+
+
+function resetXena() {
+
+
+  localStorage.clear();
+
+
+  resetSW();
+
+
+  location.reload();
+
+
+}
+
+
+
+// ============================================================
+
+
+// CLOCK
+
+
+// ============================================================
+
+
+function updateClock() {
+
+
+  var d = new Date();
+
+
+  $('footerclock').textContent = d.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+
+
+}
+
+
+setInterval(updateClock, 10000);
+
+
+updateClock();
+
+
+
+// ============================================================
+
+
+// HEALTH CHECK
+
+
+// ============================================================
+
+
+function checkHealth() {
+
+
+  fetch('/health/quick').then(function(r) { return r.json(); }).then(function(d) {
+
+
+    var dot = $('statusdot');
+
+
+    dot.style.background = d.color;
+
+
+    dot.style.boxShadow = '0 0 4px ' + d.color;
+
+
+    $('footerstatus').textContent = d.label;
+
+
+  }).catch(function() {
+
+
+    $('statusdot').style.background = '#ef4444';
+
+
+    $('statusdot').style.boxShadow = '0 0 4px #ef4444';
+
+
+    $('footerstatus').textContent = 'offline';
+
+
+  });
+
+
+}
+
+
+checkHealth();
+
+
+setInterval(checkHealth, 30000);
+
+
+
+// ============================================================
+
+
+// PANIC KEY
+
+
+// ============================================================
+
+
+document.addEventListener('keydown', function(e) {
+
+
+  var key = localStorage.getItem('xnPanicKey') || 'Escape';
+
+
+  if (e.key === key || e.code === key) {
+
+
+    var url = localStorage.getItem('xnPanicURL') || 'https://classroom.google.com';
+
+
+    window.location.href = url;
+
+
+  }
+
+
+});
+
+
+
+// ============================================================
+
+
+// INIT
+
+
+// ============================================================
+
+
+// Apply cloaking on load
+
+
+document.title = localStorage.getItem('xnTitle') || 'Google Classroom';
+
+
+var faviconLink = document.querySelector('link[rel="shortcut icon"]');
+
+
+if (faviconLink) faviconLink.href = localStorage.getItem('xnFavicon') || 'https://ssl.gstatic.com/classroom/favicon.png';
+
+
+
+// Create initial tab
+
+
+newTab();
+
+
 </script>
+
+
 </body>
+
+
 </html>
