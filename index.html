@@ -2,268 +2,323 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Google Classroom</title>
 <link rel="shortcut icon" href="https://ssl.gstatic.com/classroom/favicon.png">
-<!-- [same head styles as before - keep all your existing CSS/head content] -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+<style>
+/* … (all the CSS you posted – unchanged) … */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#000}
+body{color:#d4d4d8;font-family:'Inter',sans-serif;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#000}
+::-webkit-scrollbar-thumb{background:#181818;border-radius:2px}
+#stars-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;display:block}
+.no-scrollbar::-webkit-scrollbar{display:none}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal-box{background:#0a0a0a;border:1px solid #181818;border-radius:14px;padding:20px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto}
+.modal-box h3{font-size:11px;font-family:'JetBrains Mono',monospace;color:white;margin-bottom:14px;letter-spacing:0.08em;text-transform:uppercase}
+.modal-box input,.modal-box textarea,.modal-box select{width:100%;background:#000;border:1px solid #181818;border-radius:6px;padding:7px 10px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#d4d4d8;outline:none;box-sizing:border-box}
+.modal-box input:focus,.modal-box textarea:focus,.modal-box select:focus{border-color:#333}
+.modal-box label{font-size:9px;color:#52525b;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:4px}
+.modal-box .field{margin-bottom:10px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.modal-actions button{padding:6px 14px;border-radius:6px;font-size:10px;font-family:'JetBrains Mono',monospace;border:1px solid #181818;background:#000;color:#a1a1aa;cursor:pointer;transition:all .15s}
+.modal-actions button:hover{border-color:#2a2a2a;color:white}
+.modal-actions button.primary{background:#181818;color:white;border-color:#2a2a2a}
+.modal-actions button.danger{background:#1a0000;color:#ef4444;border-color:#330000}
+.modal-actions button.warning{background:#1a1a00;color:#eab308;border-color:#332200}
+.stab-content{display:none}.stab-content.active{display:block}
+.xena-title{user-select:none;letter-spacing:0.12em}
+.error-page{position:absolute;inset:0;z-index:25;background:#030303;display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center}
+.error-page .code{font-family:'JetBrains Mono',monospace;font-size:48px;font-weight:700;color:#ef4444;letter-spacing:0.05em}
+.error-page .title{font-family:'JetBrains Mono',monospace;font-size:12px;color:#a1a1aa;margin-top:8px}
+.error-page .msg{font-family:'Inter',sans-serif;font-size:11px;color:#52525b;margin-top:16px;max-width:400px;line-height:1.6}
+.error-page .acts{display:flex;gap:8px;margin-top:24px;flex-wrap:wrap;justify-content:center}
+.error-page .acts button{padding:8px 16px;border-radius:6px;font-size:10px;font-family:'JetBrains Mono',monospace;border:1px solid #181818;background:#000;color:#a1a1aa;cursor:pointer;transition:all .15s}
+.error-page .acts button:hover{border-color:#333;color:white}
+.tab-icon{width:12px;height:12px;border-radius:2px;object-fit:contain;margin-right:4px;display:inline-block;vertical-align:middle}
+
+/* Splash screen */
+#splash-screen{position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;transition:opacity .5s}
+#splash-screen.hidden{opacity:0;pointer-events:none}
+#splash-screen h1{font-family:'JetBrains Mono',monospace;font-size:24px;color:white;margin-bottom:8px;letter-spacing:0.1em}
+#splash-screen p{font-family:'Inter',sans-serif;font-size:12px;color:#52525b;max-width:400px;line-height:1.6}
+#splash-screen .progress{width:200px;height:2px;background:#181818;border-radius:2px;margin-top:24px;overflow:hidden}
+#splash-screen .progress div{height:100%;background:#52525b;width:0%;transition:width 3s linear;border-radius:2px}
+
+/* About modal wider */
+#aboutmodal .modal-box{max-width:500px;}
+</style>
 </head>
 <body>
-<!-- [same HTML structure as before - keep all your existing DOM elements] -->
 
-<!-- Replace ONLY the application <script> section at the bottom -->
-<script src="/engine.js"></script>
+<!-- Stars canvas – initialized immediately -->
+<canvas id="stars-canvas"></canvas>
+
+<!-- Splash screen -->
+<div id="splash-screen">
+  <h1>XENA</h1>
+  <svg class="w-16 h-2 text-zinc-700 opacity-80" viewBox="0 0 100 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+    <path d="M5 12 Q 25 2, 50 12 T 95 12"/>
+  </svg>
+  <p>The web is a vast collection of interconnected documents and resources, accessed through the internet using web browsers. It was invented by Tim Berners‑Lee in 1989 while working at CERN, and has since grown to become one of the most important tools for information sharing in human history. Learn more about it today, so start your learning adventure now with Riverbend Tutoring.</p>
+  <div class="progress"><div id="splash-progress"></div></div>
+</div>
+
+<script>if(top!==self){top.location.href=self.location.href}</script>
+
+<!-- ===== STARS ===== -->
 <script>
-// ============================================================
-// XENA APP LOGIC
-// ============================================================
-function $(id){return document.getElementById(id)}
+/* … (same stars code as before) … */
+(function(){
+  var c=document.getElementById('stars-canvas');
+  if(!c)return;
+  var x=c.getContext('2d'),w,h,stars=[],meteors=[],
+      lw=window.innerWidth,lh=window.innerHeight;
+  c.width=lw;c.height=lh;w=lw;h=lh;
+  var n=Math.max(Math.floor((lw*lh)/6500),100);
+  for(var i=0;i<n;i++)stars.push({
+    x:Math.random()*lw,y:Math.random()*lh,r:Math.random()*1.6+0.2,
+    ba:Math.random()*0.6+0.1,al:Math.random()*0.6+0.1,
+    sp:Math.random()*0.025+0.003,ph:Math.random()*Math.PI*2,
+    co:Math.random()>0.98?'255,200,150':(Math.random()>0.96?'150,180,255':'220,225,250')
+  });
+  window.addEventListener('resize',function(){
+    w=window.innerWidth;h=window.innerHeight;c.width=w;c.height=h;
+    stars.length=0;
+    var n2=Math.max(Math.floor((w*h)/6500),100);
+    for(var i=0;i<n2;i++)stars.push({
+      x:Math.random()*w,y:Math.random()*h,r:Math.random()*1.6+0.2,
+      ba:Math.random()*0.6+0.1,al:Math.random()*0.6+0.1,
+      sp:Math.random()*0.025+0.003,ph:Math.random()*Math.PI*2,
+      co:Math.random()>0.98?'255,200,150':(Math.random()>0.96?'150,180,255':'220,225,250')
+    });
+  });
+  var mTimer=0;
+  function dr(){
+    x.clearRect(0,0,w,h);
+    for(var i=0;i<stars.length;i++){
+      var s=stars[i];
+      s.al=s.ba+Math.sin(Date.now()*s.sp+s.ph)*0.3;
+      if(s.al<0.05)s.al=0.05;if(s.al>0.95)s.al=0.95;
+      x.beginPath();x.arc(s.x,s.y,s.r,0,Math.PI*2);
+      x.fillStyle='rgba('+s.co+','+s.al+')';x.fill();
+    }
+    mTimer++;
+    if(mTimer>3600+Math.random()*3600){
+      mTimer=0;meteors.push({
+        x:Math.random()*w*0.9,y:Math.random()*h*0.15,
+        vx:-(Math.random()*10+4),vy:Math.random()*2+1,
+        li:1.0,co:Math.random()<0.1?'255,80,80':'80,130,255',
+        ln:Math.random()*4+2
+      });
+    }
+    for(var i=meteors.length-1;i>=0;i--){
+      var m=meteors[i];m.x+=m.vx;m.y+=m.vy;m.li-=0.015;
+      if(m.li<=0||m.x<-60||m.y>h+60){meteors.splice(i,1);continue;}
+      x.beginPath();x.moveTo(m.x,m.y);x.lineTo(m.x-m.vx*m.ln,m.y-m.vy*m.ln);
+      x.strokeStyle='rgba('+m.co+','+m.li*0.6+')';
+      x.lineWidth=2;x.stroke();
+    }
+    requestAnimationFrame(dr);
+  }
+  dr();
+})();
+</script>
 
-// Tabs state
-var tabs=[], actTab=null, tc=0;
-var hist=JSON.parse(localStorage.getItem('xnHist')||'[]');
-
-// Search query analysis
-function searchQuery(q) {
-  var t = q.trim();
-  if (!t) return '';
-  if (/^https?:\/\//i.test(t)) return t;
-  if (/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}(\/.*)?$/i.test(t)) return 'https://' + t;
-  var mode = localStorage.getItem('xnDDGMode') || 'api';
-  if (mode === 'google') return 'https://www.google.com/search?q=' + encodeURIComponent(t) + '&udm=2';
-  return '__api__' + t;
-}
-
-// Main navigate
-function navigate(input) {
-  var d = searchQuery(input);
-  if (!d) return;
-  
-  if (d.startsWith('__api__')) {
-    searchAPI(d.replace('__api__', ''));
+<!-- ===== SPLASH LOGIC ===== -->
+<script>
+(function(){
+  if(localStorage.getItem('xnSplashDone')){
+    document.getElementById('splash-screen').classList.add('hidden');
     return;
   }
-  
-  // Save to history
-  hist = hist.filter(function(h) { return h !== d; });
-  hist.unshift(d);
-  if (hist.length > 50) hist = hist.slice(0, 50);
-  localStorage.setItem('xnHist', JSON.stringify(hist));
-  
-  // Show iframe
-  $('homepage').style.display = 'none';
-  hideErr();
-  $('rframe').style.display = 'block';
-  
-  // Update tab
-  var t = tabs.find(function(x) { return x.id === actTab; });
-  if (t) {
-    t.url = d;
-    try { t.title = new URL(d).hostname.replace('www.', ''); } catch(e) { t.title = d; }
-    t.favicon = 'https://www.google.com/s2/favicons?domain=' + (t.url.startsWith('http') ? new URL(t.url).hostname : 'google.com') + '&sz=16';
-  }
-  renderTabs();
-  $('urlbar').value = d;
-  
-  // Navigate via Scramjet
-  if (window.XENA && window.XENA.navigate) window.XENA.navigate(d);
-  else $('rframe').src = d;
-}
-
-// API search (DDG - no captcha)
-function searchAPI(query) {
-  fetch('/api/search?q=' + encodeURIComponent(query))
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      var html = buildSearchHTML(query, data);
-      var blob = new Blob([html], { type: 'text/html' });
-      $('rframe').src = URL.createObjectURL(blob);
-      $('homepage').style.display = 'none';
-      $('rframe').style.display = 'block';
-      $('urlbar').value = 'search: ' + query;
-      $('searchfield').value = '';
-      
-      var t = tabs.find(function(x) { return x.id === actTab; });
-      if (t) { t.url = 'search:' + query; t.title = 'Search: ' + query; }
-      renderTabs();
-    })
-    .catch(function() { navigate('https://www.google.com/search?q=' + encodeURIComponent(query)); });
-}
-
-function buildSearchHTML(query, data) {
-  var items = '';
-  if (data.abstract && data.heading) {
-    items += '<div class="abs"><div class="abst">' + escH(data.heading) + '</div><p>' + escH(data.abstract) + '</p></div>';
-  }
-  if (data.results && data.results.length) {
-    for (var r of data.results) {
-      items += '<div class="r"><a href="#" onclick="parent.postMessage({type:\'xn-nav\',url:\'' + r.url.replace(/'/g,"\\'") + '\'},\'*\')">' + escH(r.title) + '</a><div class="u">' + r.url + '</div><div class="s">' + escH(r.snippet) + '</div></div>';
-    }
-  } else {
-    items += '<div class="no">No results</div>';
-  }
-  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + escH(query) + ' - XENA</title><style>body{background:#030303;color:#d4d4d8;font-family:sans-serif;max-width:800px;margin:0 auto;padding:20px}h1{color:white;font-size:20px;border-bottom:1px solid #181818;padding-bottom:12px;margin-bottom:20px}.r{border:1px solid #181818;border-radius:10px;padding:14px;margin-bottom:10px;background:#0a0a0a}.r a{color:#5b9aff;text-decoration:none;font-size:14px;display:block;margin-bottom:4px}.r a:hover{text-decoration:underline}.u{color:#22c55e;font-size:11px;margin-bottom:6px}.s{color:#a1a1aa;font-size:12px;line-height:1.6}.abs{border:1px solid #2a2a2a;border-radius:10px;padding:16px;margin-bottom:20px;background:#0d0d0d}.abst{color:white;font-size:14px;font-weight:600;margin-bottom:8px}.no{color:#52525b;text-align:center;padding:40px}.f{text-align:center;padding:20px;color:#52525b;font-size:10px}</style></head><body><h1>&#128269; ' + escH(query) + '</h1>' + items + '<div class="f">XENA Search &mdash; DuckDuckGo</div></body></html>';
-}
-
-function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-// Message listener from search iframe
-window.addEventListener('message', function(e) {
-  if (e.data && e.data.type === 'xn-nav') navigate(e.data.url);
-});
-
-// Event handlers
-$('urlbar').addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); goURL(); } });
-$('searchfield').addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); goSearch(); } });
-
-function goSearch() {
-  var v = $('searchfield').value.trim();
-  if (v) {
-    if ((localStorage.getItem('xnDDGMode') || 'api') === 'api') searchAPI(v);
-    else navigate(v);
-  }
-}
-function goURL() { var v = $('urlbar').value.trim(); if (v) navigate(v); }
-function goHome() {
-  var t = tabs.find(function(x) { return x.id === actTab; });
-  if (t) { t.url = ''; t.title = 'Homepage'; t.favicon = null; }
-  $('rframe').style.display = 'none'; $('rframe').src = 'about:blank';
-  hideErr(); $('homepage').style.display = 'flex'; $('urlbar').value = ''; $('searchfield').value = '';
-  renderTabs();
-}
-
-function nav(d) {
-  try {
-    var f = $('rframe');
-    if (!f.contentWindow) return;
-    if (d === 'back') f.contentWindow.history.back();
-    else if (d === 'forward') f.contentWindow.history.forward();
-    else if (d === 'reload') f.contentWindow.location.reload();
-  } catch(e) {}
-}
-
-// TABS
-function newTab(url) {
-  var id = 't-' + (++tc);
-  var tab = { id: id, title: 'Homepage', url: url || '', favicon: null };
-  tabs.push(tab); actTab = id; renderTabs();
-  if (url) navigate(url); else switchTab(id);
-  return id;
-}
-
-function renderTabs() {
-  var con = $('tabbar'); con.innerHTML = '';
-  for (var i = 0; i < tabs.length; i++) {
-    var t = tabs[i], a = t.id === actTab;
-    var di = document.createElement('div');
-    di.className = 'group flex items-center gap-1 px-2.5 h-7 rounded-t-lg border-t border-x border-zinc-800 cursor-pointer transition min-w-[110px] max-w-[160px] hover:border-zinc-700';
-    di.style.background = a ? '#050505' : '#000'; di.style.color = a ? 'white' : '#71717a';
-    var ic = document.createElement('img');
-    ic.className = 'tab-icon'; ic.src = t.favicon || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="%23333"/></svg>';
-    ic.onerror = function() { this.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="%23555"/></svg>'; };
-    var sp = document.createElement('span');
-    sp.className = 'text-[10px] font-mono truncate flex-1'; sp.textContent = t.title;
-    var cl = document.createElement('button');
-    cl.className = 'text-zinc-700 hover:text-zinc-400 text-[9px] ml-0.5 leading-none px-0.5'; cl.textContent = 'x';
-    (function(tid) { cl.onclick = function(e) { e.stopPropagation(); closeTab(tid); }; })(t.id);
-    if (tabs.length === 1) cl.style.display = 'none';
-    (function(tid) { di.onclick = function() { switchTab(tid); }; })(t.id);
-    di.appendChild(ic); di.appendChild(sp); di.appendChild(cl); con.appendChild(di);
-  }
-  var nt = document.createElement('button');
-  nt.className = 'flex items-center justify-center w-6 h-6 rounded border border-zinc-800 hover:bg-zinc-900 text-zinc-500 hover:text-white transition text-sm font-mono mb-0.5';
-  nt.textContent = '+'; nt.title = 'New Tab'; nt.onclick = function() { addTab(); };
-  con.appendChild(nt);
-}
-
-function addTab() { newTab(); }
-function switchTab(id) {
-  actTab = id; var t = tabs.find(function(x) { return x.id === id; }); if (!t) return;
-  renderTabs(); hideErr();
-  if (t.url && t.url !== 'about:blank') {
-    $('homepage').style.display = 'none'; $('rframe').style.display = 'block';
-    if (t._cachedSrc) $('rframe').src = t._cachedSrc;
-    $('urlbar').value = t.url;
-  } else {
-    $('homepage').style.display = 'flex'; $('rframe').style.display = 'none'; $('rframe').src = 'about:blank'; $('urlbar').value = '';
-  }
-  $('searchfield').value = '';
-}
-function closeTab(id) {
-  if (tabs.length <= 1) {
-    var t = tabs[0]; t.url = ''; t.title = 'Homepage'; t.favicon = null;
-    renderTabs(); switchTab(t.id); return;
-  }
-  var idx = tabs.findIndex(function(x) { return x.id === id; });
-  tabs = tabs.filter(function(x) { return x.id !== id; });
-  if (actTab === id) actTab = tabs[Math.min(idx, tabs.length - 1)].id;
-  renderTabs(); switchTab(actTab);
-}
-
-function showErr(c, t, m) { $('errcode').textContent = c; $('errtitle').textContent = t; $('errmsg').textContent = m; $('errpage').style.display = 'flex'; }
-function hideErr() { $('errpage').style.display = 'none'; }
-
-// SETTINGS
-function openSettings() {
-  $('inp-favicon').value = localStorage.getItem('xnFavicon') || 'https://ssl.gstatic.com/classroom/favicon.png';
-  $('inp-title').value = localStorage.getItem('xnTitle') || 'Google Classroom';
-  $('inp-panickey').value = localStorage.getItem('xnPanicKey') || 'Escape';
-  $('inp-panicurl').value = localStorage.getItem('xnPanicURL') || 'https://classroom.google.com';
-  $('inp-ddgmode').value = localStorage.getItem('xnDDGMode') || 'api';
-  $('setmodal').classList.add('open');
-}
-function closeModal(id) { $(id).classList.remove('open'); }
-function saveSettings() {
-  localStorage.setItem('xnFavicon', $('inp-favicon').value);
-  localStorage.setItem('xnTitle', $('inp-title').value);
-  localStorage.setItem('xnPanicKey', $('inp-panickey').value);
-  localStorage.setItem('xnPanicURL', $('inp-panicurl').value);
-  localStorage.setItem('xnDDGMode', $('inp-ddgmode').value);
-  document.title = $('inp-title').value;
-  var link = document.querySelector('link[rel="shortcut icon"]') || document.querySelector('link[rel="icon"]');
-  if (link) link.href = $('inp-favicon').value;
-  closeModal('setmodal');
-}
-function switchPane(id, btn) {
-  document.querySelectorAll('.stab-content').forEach(function(e) { e.classList.remove('active'); });
-  document.querySelectorAll('.tab-btn').forEach(function(e) { e.classList.remove('active'); });
-  $(id).classList.add('active'); if (btn) btn.classList.add('active');
-}
-function clearHist() { localStorage.setItem('xnHist', '[]'); hist = []; }
-function resetSW() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(regs) { for (var r of regs) r.unregister(); });
-  }
-  caches.keys().then(function(names) { for (var n of names) caches.delete(n); });
-}
-function resetXena() { localStorage.clear(); resetSW(); location.reload(); }
-
-// CLOCK
-function updateClock() { $('footerclock').textContent = new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'}); }
-setInterval(updateClock, 10000); updateClock();
-
-// HEALTH
-function checkHealth() {
-  fetch('/health/quick').then(function(r) { return r.json(); }).then(function(d) {
-    var dot = $('statusdot'); dot.style.background = d.color; dot.style.boxShadow = '0 0 4px ' + d.color;
-    $('footerstatus').textContent = d.label;
-  }).catch(function() {
-    $('statusdot').style.background = '#ef4444'; $('statusdot').style.boxShadow = '0 0 4px #ef4444';
-    $('footerstatus').textContent = 'offline';
-  });
-}
-checkHealth(); setInterval(checkHealth, 30000);
-
-// PANIC
-document.addEventListener('keydown', function(e) {
-  var key = localStorage.getItem('xnPanicKey') || 'Escape';
-  if (e.key === key || e.code === key) window.location.href = localStorage.getItem('xnPanicURL') || 'https://classroom.google.com';
-});
-
-// Init cloak + first tab
-document.title = localStorage.getItem('xnTitle') || 'Google Classroom';
-var fl = document.querySelector('link[rel="shortcut icon"]');
-if (fl) fl.href = localStorage.getItem('xnFavicon') || 'https://ssl.gstatic.com/classroom/favicon.png';
-newTab();
+  var bar=document.getElementById('splash-progress');
+  setTimeout(function(){bar.style.width='100%';},100);
+  setTimeout(function(){
+    document.getElementById('splash-screen').classList.add('hidden');
+    localStorage.setItem('xnSplashDone','1');
+  },4000);
+})();
 </script>
-</body>
-</html>
+
+<!-- ===== HEADER ===== -->
+<header class="flex items-center h-11 px-3 bg-black/95 border-b border-zinc-900 select-none shrink-0 relative z-20">
+  <div class="flex items-center gap-1 mr-2">
+    <button onclick="nav('back')" class="flex items-center justify-center w-7 h-7 rounded-md hover:bg-zinc-900 text-zinc-500 hover:text-white transition">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button onclick="nav('forward')" class="flex items-center justify-center w-7 h-7 rounded-md hover:bg-zinc-900 text-zinc-500 hover:text-white transition">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <button onclick="nav('reload')" class="flex items-center justify-center w-7 h-7 rounded-md hover:bg-zinc-900 text-zinc-500 hover:text-white transition">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+    </button>
+  </div>
+  <div class="flex-1 flex h-7 rounded-lg border border-zinc-800 bg-[#050505] overflow-hidden focus-within:border-zinc-600 transition">
+    <div class="flex items-center px-2 bg-zinc-950 text-zinc-500 text-[9px] font-mono border-r border-zinc-900 shrink-0">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    </div>
+    <input type="text" id="urlbar" placeholder="" spellcheck="false" autocomplete="off" class="flex-1 px-3 text-[11px] bg-transparent outline-none text-white placeholder-zinc-800 font-mono w-full">
+    <button onclick="goURL()" class="px-3 bg-zinc-900 border-l border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white text-[9px] font-mono tracking-wider uppercase transition">Go</button>
+  </div>
+</header>
+
+<!-- ===== TAB BAR ===== -->
+<section class="flex items-end justify-between px-3 bg-black/95 border-b border-zinc-900 h-9 select-none shrink-0 overflow-x-auto no-scrollbar relative z-20">
+  <div class="flex items-end gap-1" id="tabbar"></div>
+  <div class="flex items-center gap-1.5 mb-0.5">
+    <button onclick="openSettings()" class="flex items-center justify-center w-6 h-6 rounded border border-zinc-800 bg-[#050505] text-zinc-500 hover:text-white transition" title="Settings">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    </button>
+    <button onclick="openAI()" class="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition text-[9px] font-mono font-bold">AI</button>
+  </div>
+</section>
+
+<!-- ===== MAIN ===== -->
+<main class="flex-1 relative bg-[#030303] overflow-hidden flex flex-col">
+
+  <!-- HOMEPAGE -->
+  <div id="homepage" class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-transparent px-4">
+    <div class="max-w-xl w-full flex flex-col items-center text-center space-y-5">
+      <div class="select-none cursor-default">
+        <h1 class="xena-title text-7xl font-extrabold text-white font-mono drop-shadow-[0_0_15px_rgba(255,255,255,0.08)]">XENA</h1>
+        <div class="flex items-center justify-center mt-1">
+          <svg class="w-20 h-3 text-zinc-700 opacity-80" viewBox="0 0 100 20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+            <path d="M5 12 Q 25 2, 50 12 T 95 12"/>
+          </svg>
+        </div>
+        <span class="block text-[10px] text-zinc-600 tracking-[0.3em] font-mono mt-1 uppercase">v2</span>
+      </div>
+      <div class="w-full flex h-10 rounded-lg border border-zinc-800 bg-black/80 overflow-hidden focus-within:border-zinc-600 transition duration-150 backdrop-blur-sm">
+        <div class="flex items-center px-3 bg-zinc-950 text-zinc-500 text-[10px] border-r border-zinc-900 font-mono shrink-0">DDG</div>
+        <input type="text" id="searchfield" placeholder="" spellcheck="false" autocomplete="off" class="flex-1 px-4 text-white bg-transparent outline-none text-xs placeholder-zinc-600 font-mono fact-target w-full">
+        <button onclick="goSearch()" class="px-4 bg-zinc-900 border-l border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white text-[10px] font-mono tracking-widest uppercase transition">Go</button>
+      </div>
+      <!-- About button -->
+      <div class="flex items-center gap-2 mt-1">
+        <button onclick="openAbout()" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-800/60 text-zinc-400 hover:text-white transition text-[10px] font-mono">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          About
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FRAME -->
+  <iframe id="rframe" class="absolute inset-0 w-full h-full border-none z-20" sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts allow-top-navigation allow-downloads" style="display:none" src="about:blank"></iframe>
+
+  <!-- ERROR PAGE -->
+  <div id="errpage" class="error-page">
+    <div class="code" id="errcode">XNA-000</div>
+    <div class="title" id="errtitle">Error</div>
+    <div class="msg" id="errmsg">Something went wrong.</div>
+    <div class="acts">
+      <button onclick="resetSW()">Reset SW</button>
+      <button onclick="copyErr()">Copy Code</button>
+      <button onclick="goHome()">Home</button>
+    </div>
+  </div>
+</main>
+
+<!-- ===== FOOTER ===== -->
+<footer class="flex items-center justify-between h-8 px-4 bg-black/95 border-t border-zinc-900 select-none shrink-0 relative z-20">
+  <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" id="statusdot"></span></div>
+  <div class="flex items-center gap-2"><span id="footerstatus" class="text-[10px] font-mono text-zinc-600"></span></div>
+  <div class="flex items-center gap-2"><span id="footerclock" class="text-[10px] font-mono text-zinc-600"></span></div>
+</footer>
+
+<!-- ===== SETTINGS MODAL ===== -->
+<div id="setmodal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Settings</h3>
+    <div class="flex gap-2 mb-4 flex-wrap">
+      <button class="tab-btn active" onclick="switchPane('pane-cloak',this)">Cloak</button>
+      <button class="tab-btn" onclick="switchPane('pane-hist',this)">History</button>
+      <button class="tab-btn" onclick="switchPane('pane-errs',this)">Errors</button>
+      <button class="tab-btn" onclick="switchPane('pane-bugs',this)">Bugs</button>
+      <button class="tab-btn" onclick="switchPane('pane-transport',this)">Transport</button>
+      <button class="tab-btn" onclick="switchPane('pane-reset',this)">Reset</button>
+    </div>
+    <div id="pane-cloak" class="stab-content active">
+      <div class="field"><label>Favicon URL</label><input type="text" id="inp-favicon"></div>
+      <div class="field"><label>Page Title</label><input type="text" id="inp-title"></div>
+      <div class="field"><label>Panic Key</label><input type="text" id="inp-panickey" value="Escape"></div>
+      <div class="field"><label>Panic URL</label><input type="text" id="inp-panicurl" value="https://classroom.google.com"></div>
+      <div class="field"><label>Launch Mode</label><select id="inp-launch"><option value="normal">Normal</option><option value="blank">About:Blank</option><option value="blob">Blob:URL</option></select></div>
+      <div class="field"><label>Block External Links</label><select id="inp-block"><option value="yes">Yes</option><option value="no">No</option></select></div>
+      <div class="field"><label>DDG Mode</label><select id="inp-ddgmode"><option value="normal">Normal DDG</option><option value="html">HTML DDG (No JS)</option></select></div>
+      <div class="modal-actions"><button onclick="closeModal('setmodal')">Cancel</button><button class="primary" onclick="saveSettings()">Save</button></div>
+    </div>
+    <div id="pane-hist" class="stab-content">
+      <div id="histlist" style="max-height:200px;overflow-y:auto"></div>
+      <div class="modal-actions"><button class="danger" onclick="clearHist()">Clear</button><button onclick="closeModal('setmodal')">Done</button></div>
+    </div>
+    <div id="pane-errs" class="stab-content">
+      <div id="errlist" style="max-height:200px;overflow-y:auto"></div>
+      <div class="modal-actions"><button class="danger" onclick="clearErrLog()">Clear</button><button onclick="closeModal('setmodal')">Done</button></div>
+    </div>
+    <div id="pane-bugs" class="stab-content">
+      <div class="field"><label>Title</label><input type="text" id="inp-bugtitle"></div>
+      <div class="field"><label>Details</label><textarea id="inp-bugdet" rows="3"></textarea></div>
+      <div class="modal-actions"><button onclick="closeModal('setmodal')">Cancel</button><button class="primary" onclick="submitBug()">Submit</button></div>
+    </div>
+    <div id="pane-transport" class="stab-content">
+      <div class="field">
+        <label>Proxy Engine Mode</label>
+        <select id="inp-transport">
+          <option value="1">Option 1 (LE) — BareClient Direct</option>
+          <option value="2">Option 2 (FN) — Epoxy/Wisp Encrypted</option>
+          <option value="3">Option 3 (XENA) — Video-Optimized</option>
+        </select>
+      </div>
+      <p class="text-[9px] text-zinc-600 font-mono leading-relaxed mb-3">
+        <span class="text-zinc-400">Option 1:</span> Fast, clean bare server proxying. Best for general browsing.<br>
+        <span class="text-zinc-400">Option 2:</span> Encrypted tunnel via Wisp. Better privacy, slight overhead.<br>
+        <span class="text-zinc-400">Option 3:</span> Smart video + cookie passthrough. Best for TikTok/media sites.
+      </p>
+      <div class="modal-actions">
+        <button onclick="closeModal('setmodal')">Cancel</button>
+        <button class="primary" onclick="saveTransport()">Apply</button>
+      </div>
+    </div>
+    <div id="pane-reset" class="stab-content">
+      <p class="text-[10px] text-zinc-500 font-mono mb-3 leading-relaxed">Reset settings to defaults, clear history/errors, and optionally reset the service worker.</p>
+      <div class="modal-actions flex flex-col gap-2">
+        <div class="flex gap-2">
+          <button class="warning flex-1" onclick="resetSW()">Reset Service Worker</button>
+          <button class="danger flex-1" onclick="resetXena()">Reset Xena</button>
+        </div>
+        <button onclick="closeModal('setmodal')" class="w-full">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ABOUT MODAL ===== -->
+<div id="aboutmodal" class="modal-overlay">
+  <div class="modal-box" style="max-width:500px;">
+    <div class="flex items-center justify-between mb-4">
+      <h3 style="margin-bottom:0;">About</h3>
+      <button onclick="closeModal('aboutmodal')" class="flex items-center justify-center w-6 h-6 rounded hover:bg-zinc-900 text-zinc-500 hover:text-white transition">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="background:#000;border:1px solid #181818;border-radius:10px;padding:20px;max-height:50vh;overflow-y:auto;">
+      <p class="text-[11px] text-zinc-400 font-mono leading-relaxed" style="white-space:pre-wrap;">So uhh i dont know how to start this but, you may notice that XENA is a new Proxy. You have never heard the name before. XENA is a proxy that aims to be at the top, and a proxy that schools hate. Now, you will notice many bugs on XENA, some bugs more obvious than others. However you should know that Xena is in it's <span style="color:#ef4444;">beta</span> phase. That is because as the end of the academic year, approaches, more and more proxies are going on holiday, retreating for improvement. That was originally my plan, until I heard from other owners that a vast majority of Proxies are no longer functional. That means that I actually have to do school work! So, fed up, I decided to release XENA early. Now, XENA will go offline after <strong><u>Saturday the 18th of July</u></strong> This is to ensure that we can be refined to the standard you expect. But until then, have fun with Beta release!</p>
+      <p class="text-[11px] text-zinc-400 font-mono leading-relaxed"><a href="https://discord.gg/rqG3ahPnR5" target="_blank" class="text-blue-400 hover:text-blue-300 underline">https://discord.gg/rqG3ahPnR5</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== AI MODAL ===== -->
+<div id="aimodal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>AI</h3>
+    <div style="background:#000;border:1px solid #181818;border-radius:10px;padding:20px;text-align:center;">
+      <p class="text-[13px] text-zinc-400 font-mono leading-relaxed">"ngl I shut
